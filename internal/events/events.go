@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 // Log appends an event with a UTC RFC3339 timestamp. The caller's payload is

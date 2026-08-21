@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/KontractKoder/meshdns/internal/events"
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/events"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 var serverNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,63}$`)

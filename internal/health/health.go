@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/KontractKoder/meshdns/internal/events"
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/events"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 // ProbeFunc performs a single health check for the given URL.

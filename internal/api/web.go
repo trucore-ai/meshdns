@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	webassets "github.com/KontractKoder/meshdns/internal/web"
+	webassets "github.com/trucore-ai/meshdns/internal/web"
 )
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {

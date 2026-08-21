@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KontractKoder/meshdns/internal/events"
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/events"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 type listServersResponse struct {

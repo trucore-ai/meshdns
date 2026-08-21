@@ -17,4 +17,4 @@ Other approaches you've tried or considered.
 
 ## Additional context
 Links, references, or anything else relevant. If this is about
-the broader roadmap, consider opening a [Discussion](https://github.com/KontractKoder/meshdns/discussions) instead!
+the broader roadmap, consider opening a [Discussion](https://github.com/trucore-ai/meshdns/discussions) instead!

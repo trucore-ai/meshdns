@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 type Server struct {

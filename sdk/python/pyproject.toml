@@ -9,7 +9,7 @@ description = "Python client for MeshDNS — the distributed capability mesh"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "KontractKoder" }]
+authors = [{ name = "trucore-ai" }]
 dependencies = ["httpx>=0.25"]
 
 [project.optional-dependencies]

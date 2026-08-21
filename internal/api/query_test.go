@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KontractKoder/meshdns/internal/store"
+	"github.com/trucore-ai/meshdns/internal/store"
 )
 
 func TestResolveReturnsUpActiveServersOrderedByUptime(t *testing.T) {

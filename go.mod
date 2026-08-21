@@ -1,4 +1,4 @@
-module github.com/KontractKoder/meshdns
+module github.com/trucore-ai/meshdns
 
 go 1.24.0
 

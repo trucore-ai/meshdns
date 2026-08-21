@@ -1,7 +1,7 @@
 # MeshDNS — Public Specification
 
 **Version:** 0.1.0
-**Repository:** [github.com/KontractKoder/meshdns](https://github.com/KontractKoder/meshdns)
+**Repository:** [github.com/trucore-ai/meshdns](https://github.com/trucore-ai/meshdns)
 **License:** MIT
 
 ---
