@@ -7,19 +7,23 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #090b10;
-      --bg2: #11141b;
-      --panel: rgba(16, 19, 28, 0.92);
+      /* TruCore brand tokens */
+      --bg: #050a14;
+      --bg2: #0b1220;
+      --panel: rgba(11, 18, 32, 0.92);
       --panel-border: rgba(255, 255, 255, 0.08);
       --text: #e5e7eb;
       --muted: #9aa3b2;
-      --accent: #7dd3fc;
-      --accent-2: #a78bfa;
+      /* MeshDNS identity: violet primary (brand card), cyan secondary */
+      --accent: #a78bfa;
+      --accent-2: #7dd3fc;
+      --brand-blue: #349de8;
       --good: #34d399;
       --bad: #fb7185;
       --line: rgba(255, 255, 255, 0.07);
       --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
       --radius: 20px;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     }
 
@@ -27,10 +31,10 @@
     html, body { min-height: 100%; }
     body {
       margin: 0;
-      font-family: var(--mono);
+      font-family: var(--sans);
       background:
-        radial-gradient(circle at top left, rgba(125, 211, 252, 0.14), transparent 28%),
-        radial-gradient(circle at 80% 10%, rgba(167, 139, 250, 0.12), transparent 30%),
+        radial-gradient(circle at top left, rgba(167, 139, 250, 0.14), transparent 28%),
+        radial-gradient(circle at 80% 10%, rgba(52, 157, 232, 0.12), transparent 30%),
         linear-gradient(180deg, var(--bg), var(--bg2));
       color: var(--text);
       line-height: 1.5;
@@ -44,8 +48,51 @@
 
     header {
       display: grid;
-      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px 32px;
       margin-bottom: 22px;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 14px;
+    }
+
+    .mesh-mark {
+      width: min(260px, 30vw);
+      height: auto;
+      justify-self: end;
+      filter: drop-shadow(0 0 24px rgba(167, 139, 250, 0.18));
+    }
+
+    .mesh-ring {
+      animation: meshRing 3.2s ease-in-out infinite;
+    }
+
+    .mesh-ring-2 {
+      animation-delay: 1.1s;
+    }
+
+    .mesh-pulse {
+      animation: meshPulse 3.2s ease-in-out infinite;
+    }
+
+    @keyframes meshRing {
+      0%, 100% { opacity: 0.25; }
+      50% { opacity: 0.9; }
+    }
+
+    @keyframes meshPulse {
+      0%, 100% { opacity: 0.75; }
+      50% { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .mesh-ring,
+      .mesh-pulse {
+        animation: none;
+      }
     }
 
     .eyebrow {
@@ -111,6 +158,7 @@
     }
 
     .stat .value {
+      font-family: var(--mono);
       font-size: clamp(24px, 3vw, 38px);
       font-weight: 700;
       letter-spacing: -0.06em;
@@ -241,7 +289,12 @@
     }
 
     input, button, pre {
-      font: inherit;
+      font-family: var(--mono);
+      font-size: inherit;
+    }
+
+    table {
+      font-family: var(--mono);
     }
 
     input {
@@ -321,9 +374,15 @@
     }
 
     @media (max-width: 980px) {
+      header,
       .stats,
       .cards {
         grid-template-columns: 1fr;
+      }
+
+      .mesh-mark {
+        justify-self: start;
+        width: min(220px, 60vw);
       }
     }
 
@@ -409,9 +468,43 @@
 
   <main class="wrap">
     <header>
-      <div class="eyebrow">MeshDNS registry</div>
-      <h1>MeshDNS — the service registry for AI agents. Ask for a capability, get the best available MCP server.</h1>
-      <p class="lede">Live registry state, recent health, and a quick capability resolver are all surfaced here without external scripts, fonts, or trackers.</p>
+      <div class="hero-copy">
+        <div class="eyebrow"><span aria-hidden="true">○</span> MeshDNS registry</div>
+        <h1>MeshDNS — the service registry for AI agents. Ask for a capability, get the best available MCP server.</h1>
+        <p class="lede">Live registry state, recent health, and a quick capability resolver are all surfaced here without external scripts, fonts, or trackers.</p>
+      </div>
+      <svg class="mesh-mark" viewBox="0 0 260 210" role="img" aria-label="Mesh network constellation">
+        <g stroke="rgba(167, 139, 250, 0.35)" stroke-width="1">
+          <line x1="34" y1="46" x2="96" y2="24" />
+          <line x1="96" y1="24" x2="158" y2="50" />
+          <line x1="158" y1="50" x2="222" y2="34" />
+          <line x1="34" y1="46" x2="66" y2="102" />
+          <line x1="96" y1="24" x2="132" y2="96" />
+          <line x1="158" y1="50" x2="132" y2="96" />
+          <line x1="222" y1="34" x2="198" y2="112" />
+          <line x1="66" y1="102" x2="132" y2="96" />
+          <line x1="132" y1="96" x2="198" y2="112" />
+          <line x1="66" y1="102" x2="44" y2="168" />
+          <line x1="132" y1="96" x2="118" y2="172" />
+          <line x1="198" y1="112" x2="192" y2="178" />
+          <line x1="44" y1="168" x2="118" y2="172" />
+          <line x1="118" y1="172" x2="192" y2="178" />
+        </g>
+        <g>
+          <circle cx="34" cy="46" r="3.5" fill="#8ed3ff" opacity="0.8" />
+          <circle cx="96" cy="24" r="4" fill="#7dd3fc" />
+          <circle cx="158" cy="50" r="5" fill="#a78bfa" />
+          <circle cx="222" cy="34" r="3.5" fill="#a78bfa" opacity="0.7" />
+          <circle cx="66" cy="102" r="4" fill="#a78bfa" opacity="0.85" />
+          <circle cx="198" cy="112" r="4" fill="#7dd3fc" opacity="0.85" />
+          <circle cx="44" cy="168" r="3.5" fill="#7dd3fc" opacity="0.7" />
+          <circle cx="118" cy="172" r="4" fill="#a78bfa" opacity="0.8" />
+          <circle cx="192" cy="178" r="3.5" fill="#8ed3ff" opacity="0.7" />
+          <circle class="mesh-pulse" cx="132" cy="96" r="7" fill="#a78bfa" />
+          <circle class="mesh-ring" cx="132" cy="96" r="12" fill="none" stroke="rgba(167, 139, 250, 0.6)" stroke-width="1.5" />
+          <circle class="mesh-ring mesh-ring-2" cx="132" cy="96" r="18" fill="none" stroke="rgba(167, 139, 250, 0.3)" stroke-width="1" />
+        </g>
+      </svg>
     </header>
 
     <section class="grid stats" aria-label="Live stats">
