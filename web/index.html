@@ -363,6 +363,50 @@
   </style>
 </head>
 <body>
+  <!-- TruCore site header -->
+  <style>
+    .tc-header { position: sticky; top: 0; z-index: 50; background: linear-gradient(to bottom, rgba(5,10,20,0.25) 0%, rgba(5,10,20,0.25) 55%, rgba(5,10,20,0) 100%); }
+    .tc-header-content { transition: opacity 320ms ease; }
+    .tc-header.is-scrolled .tc-header-content { opacity: 0.75; }
+    .tc-header-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 24px; padding: 10px 20px; min-height: 56px; }
+    .tc-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; border-radius: 6px; }
+    .tc-logo img { width: 36px; height: 36px; border-radius: 6px; object-fit: contain; }
+    .tc-logo span { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .tc-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: auto; }
+    .tc-nav a { font-size: 14px; font-weight: 500; color: #cbd5e1; text-decoration: none; padding: 6px 10px; border-radius: 6px; transition: background-color 200ms ease, color 200ms ease; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .tc-nav a:hover { background: rgba(255,255,255,0.05); color: #f8fafc; }
+    .tc-nav a[aria-current="true"] { color: #f8fafc; }
+    @media (min-width: 640px) {
+      .tc-header-inner { min-height: 68px; }
+      .tc-logo img { width: 40px; height: 40px; }
+    }
+  </style>
+  <header class="tc-header">
+    <div class="tc-header-content">
+      <div class="tc-header-inner">
+        <a class="tc-logo" href="https://www.trucore.xyz" aria-label="TruCore home">
+          <img src="https://www.trucore.xyz/media/trucore-mark-128.png" alt="TruCore logo" width="40" height="40" />
+          <span>TruCore</span>
+        </a>
+        <nav class="tc-nav" aria-label="Primary">
+          <a href="https://www.trucore.xyz/atf">ATF</a>
+          <a href="https://meshdns.trucore.xyz" aria-current="true">MeshDNS</a>
+          <a href="https://x402fuel.trucore.xyz">x402Fuel</a>
+          <a href="https://www.trucore.xyz/builders">Builders</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+  <script>
+    (function () {
+      var h = document.querySelector('.tc-header');
+      if (!h) return;
+      function u() { h.classList.toggle('is-scrolled', window.scrollY > 12); }
+      window.addEventListener('scroll', u, { passive: true });
+      u();
+    })();
+  </script>
+
   <main class="wrap">
     <header>
       <div class="eyebrow">MeshDNS registry</div>
