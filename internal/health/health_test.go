@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -120,9 +122,9 @@ func TestPoolDeclaresServerWithoutHealthURLHealthy(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := Start(ctx, st, 50*time.Millisecond, 200*time.Millisecond, 2)
-	pool.SetProbeFunc(func(context.Context, string, *http.Client) (bool, int) {
+	pool.SetProbeFunc(func(context.Context, string, string, *http.Client) ProbeResult {
 		probeCalls.Add(1)
-		return false, 0
+		return ProbeResult{}
 	})
 	defer func() {
 		cancel()
@@ -191,6 +193,7 @@ type probeController struct {
 
 type probeState struct {
 	up      bool
+	status  int
 	latency int
 	blocked chan struct{}
 	started chan struct{}
@@ -210,6 +213,16 @@ func (p *probeController) set(url string, up bool, latency int) {
 	p.states[url] = state
 }
 
+// setStatus registers a probe outcome with an explicit HTTP status code
+// (used to simulate e.g. 405 responses). Key may be "METHOD url" for
+// method-specific behavior or a bare URL for any-method behavior.
+func (p *probeController) setStatus(key string, up bool, status, latency int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.states[key] = probeState{up: up, status: status, latency: latency}
+}
+
 func (p *probeController) setBlocking(url string, started, release chan struct{}, up bool, latency int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -222,12 +235,15 @@ func (p *probeController) setBlocking(url string, started, release chan struct{}
 	}
 }
 
-func (p *probeController) probe(_ context.Context, url string, _ *http.Client) (bool, int) {
+func (p *probeController) probe(_ context.Context, method, url string, _ *http.Client) ProbeResult {
 	p.mu.RLock()
-	state, ok := p.states[url]
+	state, ok := p.states[method+" "+url]
+	if !ok {
+		state, ok = p.states[url]
+	}
 	p.mu.RUnlock()
 	if !ok {
-		return false, 0
+		return ProbeResult{}
 	}
 	if state.started != nil {
 		select {
@@ -238,7 +254,94 @@ func (p *probeController) probe(_ context.Context, url string, _ *http.Client) (
 	if state.blocked != nil {
 		<-state.blocked
 	}
-	return state.up, state.latency
+	if state.up {
+		return ProbeResult{Up: true, Status: http.StatusOK, LatencyMs: state.latency}
+	}
+	return ProbeResult{Up: false, Status: state.status, LatencyMs: state.latency}
+}
+
+func TestPoolAutoDetectsPOSTOnlyEndpoint(t *testing.T) {
+	st, _ := newTestStore(t)
+	ctrl := newProbeController()
+	const healthURL = "https://post-only.example.test/mcp"
+	// First probe uses method "" (defaults to GET) — the bare-URL key is the
+	// fallback for any method, so it simulates the 405 GET response.
+	ctrl.setStatus(healthURL, false, http.StatusMethodNotAllowed, 3)
+	ctrl.setStatus("POST "+healthURL, true, http.StatusOK, 7)
+
+	mustCreate(t, st, store.Server{
+		ID:        "srv-post-only",
+		Name:      "post-only",
+		ServerURL: "https://post-only.example.test",
+		HealthURL: healthURL,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := Start(ctx, st, 50*time.Millisecond, 200*time.Millisecond, 2)
+	pool.SetProbeFunc(ctrl.probe)
+	defer func() {
+		cancel()
+		<-pool.Done()
+	}()
+
+	if err := waitForState(t, st, "srv-post-only", func(s store.Server) bool {
+		return s.Up && s.LastCheckedAt != ""
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := st.GetServer("srv-post-only")
+	if err != nil {
+		t.Fatalf("GetServer = %v", err)
+	}
+	if server.ProbeMethod != http.MethodPost {
+		t.Fatalf("ProbeMethod = %q, want %q (auto-detected and persisted)", server.ProbeMethod, http.MethodPost)
+	}
+}
+
+func TestDefaultProbePOSTSendsMCPInitialize(t *testing.T) {
+	var gotMethod, gotContentType, gotAccept, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotContentType = r.Header.Get("Content-Type")
+		gotAccept = r.Header.Get("Accept")
+		body := make([]byte, 512)
+		n, _ := r.Body.Read(body)
+		gotBody = string(body[:n])
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer srv.Close()
+
+	client := srv.Client()
+
+	get := defaultProbe(context.Background(), http.MethodGet, srv.URL, client)
+	if get.Up {
+		t.Fatal("GET probe Up = true, want false (405 endpoint)")
+	}
+	if get.Status != http.StatusMethodNotAllowed {
+		t.Fatalf("GET probe Status = %d, want 405", get.Status)
+	}
+
+	post := defaultProbe(context.Background(), http.MethodPost, srv.URL, client)
+	if !post.Up {
+		t.Fatalf("POST probe Up = false, want true (status=%d)", post.Status)
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("server saw method %q, want POST", gotMethod)
+	}
+	if gotContentType != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", gotContentType)
+	}
+	if gotAccept == "" {
+		t.Fatal("Accept header missing on POST probe")
+	}
+	if !strings.Contains(gotBody, `"method":"initialize"`) {
+		t.Fatalf("POST body does not look like an MCP initialize request: %q", gotBody)
+	}
 }
 
 func waitForState(t *testing.T, st *store.Store, id string, predicate func(store.Server) bool) error {

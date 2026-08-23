@@ -6,7 +6,7 @@
 `go install github.com/trucore-ai/meshdns/cmd/meshdns@latest`
 
 ## API
-- `POST /v0/servers` — Register a server. Returns server_id + write_key.
+- `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default) or `POST` for POST-only endpoints (e.g. MCP streamable-HTTP); unset = GET with auto-detect (a 405 answer triggers an MCP `initialize` POST probe and persists the switch).
 - `GET /v0/servers` — List servers with filters: status, query, capability, cursor, limit.
 - `PUT /v0/servers/{id}` — Update server manifest. Requires write_key.
 - `DELETE /v0/servers/{id}` — Delist (soft-delete). Requires write_key.

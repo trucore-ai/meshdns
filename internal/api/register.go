@@ -26,6 +26,7 @@ type serverJSON struct {
 	Description   string   `json:"description"`
 	ServerURL     string   `json:"server_url"`
 	HealthURL     string   `json:"health_url"`
+	ProbeMethod   string   `json:"probe_method"`
 	Capabilities  []string `json:"capabilities"`
 	Status        string   `json:"status"`
 	Up            bool     `json:"up"`
@@ -45,6 +46,7 @@ func toServerJSON(server store.Server) serverJSON {
 		Description:   server.Description,
 		ServerURL:     server.ServerURL,
 		HealthURL:     server.HealthURL,
+		ProbeMethod:   server.ProbeMethod,
 		Capabilities:  caps,
 		Status:        server.Status,
 		Up:            server.Up,
@@ -60,6 +62,7 @@ type registerServerRequest struct {
 	Description  string   `json:"description"`
 	ServerURL    string   `json:"server_url"`
 	HealthURL    string   `json:"health_url"`
+	ProbeMethod  string   `json:"probe_method"`
 	Capabilities []string `json:"capabilities"`
 	OwnerContact string   `json:"owner_contact"`
 }
@@ -68,6 +71,7 @@ type updateServerRequest struct {
 	Description  *string   `json:"description"`
 	ServerURL    *string   `json:"server_url"`
 	HealthURL    *string   `json:"health_url"`
+	ProbeMethod  *string   `json:"probe_method"`
 	OwnerContact *string   `json:"owner_contact"`
 	Capabilities *[]string `json:"capabilities"`
 }
@@ -108,6 +112,7 @@ func (s *Server) handleRegisterServer(w http.ResponseWriter, r *http.Request) {
 		Description:  req.Description,
 		ServerURL:    req.ServerURL,
 		HealthURL:    req.HealthURL,
+		ProbeMethod:  strings.ToUpper(req.ProbeMethod),
 		OwnerContact: req.OwnerContact,
 		Capabilities: normalizeCapabilities(req.Capabilities),
 	}
@@ -162,6 +167,9 @@ func (s *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.OwnerContact != nil {
 		server.OwnerContact = *req.OwnerContact
+	}
+	if req.ProbeMethod != nil {
+		server.ProbeMethod = strings.ToUpper(*req.ProbeMethod)
 	}
 	if req.Capabilities != nil {
 		server.Capabilities = normalizeCapabilities(*req.Capabilities)
@@ -268,6 +276,9 @@ func validateRegisterServer(req registerServerRequest) map[string]string {
 	if req.HealthURL != "" && !validHTTPURL(req.HealthURL) {
 		detail["health_url"] = "must be a valid http or https URL"
 	}
+	if d := validateProbeMethod(req.ProbeMethod); d != "" {
+		detail["probe_method"] = d
+	}
 	if err := validateCapabilities(req.Capabilities); err != "" {
 		detail["capabilities"] = err
 	}
@@ -285,6 +296,11 @@ func validateUpdateServer(req updateServerRequest) map[string]string {
 	}
 	if req.HealthURL != nil && *req.HealthURL != "" && !validHTTPURL(*req.HealthURL) {
 		detail["health_url"] = "must be a valid http or https URL"
+	}
+	if req.ProbeMethod != nil {
+		if d := validateProbeMethod(*req.ProbeMethod); d != "" {
+			detail["probe_method"] = d
+		}
 	}
 	if req.Capabilities != nil {
 		if err := validateCapabilities(*req.Capabilities); err != "" {
@@ -350,3 +366,12 @@ func hashWriteKey(writeKey string) string {
 	sum := sha256.Sum256([]byte(writeKey))
 	return hex.EncodeToString(sum[:])
 }
+func validateProbeMethod(method string) string {
+	switch strings.ToUpper(method) {
+	case "", "GET", "POST":
+		return ""
+	default:
+		return "must be one of: GET, POST (empty = GET with auto-detect)"
+	}
+}
+

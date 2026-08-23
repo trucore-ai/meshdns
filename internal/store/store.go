@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS servers (
 	write_key_hash TEXT NOT NULL,
 	owner_contact TEXT,
 	status TEXT NOT NULL DEFAULT 'active',
+	probe_method TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 );
@@ -64,6 +65,7 @@ type Server struct {
 	HealthURL     string
 	OwnerContact  string
 	Status        string
+	ProbeMethod   string
 	Capabilities  []string
 	CreatedAt     string
 	UpdatedAt     string
@@ -85,7 +87,48 @@ func Open(dbPath string) (*Store, error) {
 		return nil, err
 	}
 
+	if err := ensureServerColumns(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
 	return &Store{db: db}, nil
+}
+
+// ensureServerColumns adds columns introduced after initial deployment
+// (CREATE TABLE IF NOT EXISTS does not modify pre-existing tables).
+func ensureServerColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(servers)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasProbeMethod := false
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dfltValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return err
+		}
+		if name == "probe_method" {
+			hasProbeMethod = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !hasProbeMethod {
+		if _, err := db.Exec(`ALTER TABLE servers ADD COLUMN probe_method TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Store) Close() error {
@@ -113,8 +156,8 @@ func (s *Store) CreateServer(server Server, writeKeyHash string) error {
 	_, err = tx.Exec(`
 INSERT INTO servers (
 	id, name, description, server_url, health_url, write_key_hash,
-	owner_contact, status, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	owner_contact, status, probe_method, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		server.ID,
 		server.Name,
 		server.Description,
@@ -123,6 +166,7 @@ INSERT INTO servers (
 		writeKeyHash,
 		server.OwnerContact,
 		server.Status,
+		server.ProbeMethod,
 		server.CreatedAt,
 		server.UpdatedAt,
 	)
@@ -168,12 +212,13 @@ func (s *Store) UpdateServer(server Server) error {
 	updatedAt := nowRFC3339()
 	result, err := tx.Exec(`
 UPDATE servers
-SET description = ?, server_url = ?, health_url = ?, owner_contact = ?, updated_at = ?
+SET description = ?, server_url = ?, health_url = ?, owner_contact = ?, probe_method = ?, updated_at = ?
 WHERE id = ?`,
 		server.Description,
 		server.ServerURL,
 		server.HealthURL,
 		server.OwnerContact,
+		server.ProbeMethod,
 		updatedAt,
 		server.ID,
 	)
@@ -194,6 +239,23 @@ WHERE id = ?`,
 	}
 
 	return tx.Commit()
+}
+
+func (s *Store) SetServerProbeMethod(id string, method string) error {
+	result, err := s.db.Exec(`UPDATE servers SET probe_method = ?, updated_at = ? WHERE id = ?`, method, nowRFC3339(), id)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (s *Store) DelistServer(id string) error {
@@ -311,6 +373,7 @@ func (s *Store) GetUpServersByCapability(capability string) ([]Server, error) {
 SELECT
 	servers.id, servers.name, coalesce(servers.description, ''), servers.server_url,
 	coalesce(servers.health_url, ''), coalesce(servers.owner_contact, ''), servers.status,
+	coalesce(servers.probe_method, ''),
 	servers.created_at, servers.updated_at,
 	server_state.up, server_state.last_checked_at, server_state.uptime_30d
 FROM servers
@@ -467,6 +530,7 @@ func baseServerQuery() string {
 SELECT
 	servers.id, servers.name, coalesce(servers.description, ''), servers.server_url,
 	coalesce(servers.health_url, ''), coalesce(servers.owner_contact, ''), servers.status,
+	coalesce(servers.probe_method, ''),
 	servers.created_at, servers.updated_at,
 	coalesce(server_state.up, 0), coalesce(server_state.last_checked_at, ''),
 	coalesce(server_state.uptime_30d, 0)
@@ -489,6 +553,7 @@ func scanServer(scanner serverScanner) (Server, error) {
 		&server.HealthURL,
 		&server.OwnerContact,
 		&server.Status,
+		&server.ProbeMethod,
 		&server.CreatedAt,
 		&server.UpdatedAt,
 		&up,

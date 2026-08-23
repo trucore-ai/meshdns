@@ -47,6 +47,11 @@ curl -s -X POST http://localhost:8080/v0/servers \
 # → {"server_id":"...","write_key":"..."}  — save the write_key!
 ```
 
+**POST-only endpoints (MCP streamable-HTTP):** add `"probe_method": "POST"` to
+probe with an MCP `initialize` request instead of GET. Leave it out to
+auto-detect: if GET answers 405, MeshDNS tries the POST probe and remembers
+the switch automatically.
+
 ### 2. Resolve a capability
 
 ```bash

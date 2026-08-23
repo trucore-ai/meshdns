@@ -16,7 +16,16 @@ import (
 )
 
 // ProbeFunc performs a single health check for the given URL.
-type ProbeFunc func(context.Context, string, *http.Client) (bool, int)
+// ProbeResult carries the outcome of a single health check.
+type ProbeResult struct {
+	Up        bool
+	Status    int // HTTP status code; 0 on transport error
+	LatencyMs int
+}
+
+// ProbeFunc performs a single health check for the given URL using the given
+// HTTP method. method "" is treated as GET.
+type ProbeFunc func(context.Context, string, string, *http.Client) ProbeResult
 
 type Pool struct {
 	st     *store.Store
@@ -31,12 +40,14 @@ type Pool struct {
 type job struct {
 	serverID string
 	url      string
+	probeMethod string
 	dueAt    time.Time
 }
 
 type serverTarget struct {
 	id   string
 	url  string
+	probeMethod string
 	kind targetKind
 }
 
@@ -98,9 +109,9 @@ func (p *Pool) SetProbeFunc(fn ProbeFunc) {
 	p.probeFn.Store(fn)
 }
 
-func (p *Pool) probe(ctx context.Context, url string) (bool, int) {
+func (p *Pool) probe(ctx context.Context, method, url string) ProbeResult {
 	fn := p.probeFn.Load().(ProbeFunc)
-	return fn(ctx, url, p.client)
+	return fn(ctx, method, url, p.client)
 }
 
 func (p *Pool) schedule(ctx context.Context, interval, timeout time.Duration) {
@@ -132,6 +143,7 @@ func (p *Pool) schedule(ctx context.Context, interval, timeout time.Duration) {
 					case p.jobs <- job{
 						serverID: target.id,
 						url:      target.url,
+						probeMethod: target.probeMethod,
 						dueAt:    now.Add(interval + jitterOffset(interval, target.id, now)),
 					}:
 					case <-ctx.Done():
@@ -165,14 +177,27 @@ func (p *Pool) worker(ctx context.Context) {
 				case <-timer.C:
 				}
 			}
-			p.runProbe(j.serverID, j.url)
+			p.runProbe(j.serverID, j.url, j.probeMethod)
 		}
 	}
 }
 
-func (p *Pool) runProbe(serverID, url string) {
+func (p *Pool) runProbe(serverID, url, probeMethod string) {
 	ts := time.Now().UTC().Format(time.RFC3339)
-	up, latencyMs := p.probe(context.Background(), url)
+	result := p.probe(context.Background(), probeMethod, url)
+
+	// Auto-detect POST-only endpoints (e.g. MCP streamable-HTTP servers that
+	// answer GET with 405). If a POST MCP initialize probe succeeds, persist
+	// the switch so future probes go straight to POST.
+	if !result.Up && result.Status == http.StatusMethodNotAllowed && probeMethod != http.MethodPost {
+		post := p.probe(context.Background(), http.MethodPost, url)
+		if post.Up {
+			_ = p.st.SetServerProbeMethod(serverID, http.MethodPost)
+			result = post
+		}
+	}
+
+	up, latencyMs := result.Up, result.LatencyMs
 
 	if err := p.st.RecordProbe(serverID, ts, up, latencyMs); err != nil {
 		return
@@ -209,35 +234,53 @@ func (p *Pool) targets() ([]serverTarget, error) {
 			targets = append(targets, serverTarget{id: server.ID, kind: targetDeclaredHealthy})
 			continue
 		}
-		targets = append(targets, serverTarget{id: server.ID, url: server.HealthURL, kind: targetProbe})
+		targets = append(targets, serverTarget{id: server.ID, url: server.HealthURL, probeMethod: server.ProbeMethod, kind: targetProbe})
 	}
 
 	return targets, nil
 }
 
-func defaultProbe(ctx context.Context, url string, client *http.Client) (bool, int) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// mcpInitializeBody is a minimal MCP initialize request used for POST probes
+// of streamable-HTTP MCP endpoints.
+const mcpInitializeBody = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meshdns-health","version":"1.0.0"}}}`
+
+func defaultProbe(ctx context.Context, method, url string, client *http.Client) ProbeResult {
+	if method == "" {
+		method = http.MethodGet
+	}
+
+	var body io.Reader
+	if method == http.MethodPost {
+		body = strings.NewReader(mcpInitializeBody)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		return false, 0
+		return ProbeResult{}
+	}
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
 	}
 
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, 0
+		return ProbeResult{}
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
-
-	if resp.StatusCode/100 != 2 {
-		return false, 0
-	}
 
 	latency := int(time.Since(start) / time.Millisecond)
 	if latency < 0 {
 		latency = 0
 	}
-	return true, latency
+
+	if resp.StatusCode/100 != 2 {
+		return ProbeResult{Up: false, Status: resp.StatusCode, LatencyMs: latency}
+	}
+
+	return ProbeResult{Up: true, Status: resp.StatusCode, LatencyMs: latency}
 }
 
 func jitterOffset(interval time.Duration, serverID string, now time.Time) time.Duration {
