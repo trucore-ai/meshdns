@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -34,13 +35,20 @@ type serverJSON struct {
 	Uptime30d     float64  `json:"uptime_30d"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
+	// Computed fields (derived from existing data — not stored in DB)
+	Source         string   `json:"source,omitempty"`
+	SourceURL      string   `json:"source_url,omitempty"`
+	Auth           string   `json:"auth,omitempty"`
+	ToolCount      int      `json:"tool_count,omitempty"`
+	ToolNames      []string `json:"tool_names,omitempty"`
+	CurlSnippet    string   `json:"curl_snippet,omitempty"`
 }
 
 func toServerJSON(server store.Server) serverJSON {
 	caps := make([]string, len(server.Capabilities))
 	copy(caps, server.Capabilities)
 
-	return serverJSON{
+	j := serverJSON{
 		ID:            server.ID,
 		Name:          server.Name,
 		Description:   server.Description,
@@ -55,6 +63,59 @@ func toServerJSON(server store.Server) serverJSON {
 		CreatedAt:     server.CreatedAt,
 		UpdatedAt:     server.UpdatedAt,
 	}
+
+	// Compute source from description / owner_contact
+	desc := strings.ToLower(server.Description)
+	contact := strings.ToLower(server.OwnerContact)
+	switch {
+	case strings.Contains(contact, "smithery"):
+		j.Source = "Smithery"
+		j.SourceURL = "https://registry.smithery.ai"
+	case strings.Contains(contact, "npm registry"):
+		j.Source = "npm"
+		j.SourceURL = "https://www.npmjs.com"
+	case strings.Contains(desc, "official mcp registry") || strings.Contains(contact, "official mcp registry"):
+		j.Source = "MCP Registry"
+		j.SourceURL = "https://registry.modelcontextprotocol.io"
+	case strings.Contains(desc, "trucore") || server.Name == "meshdns-registry":
+		j.Source = "TruCore"
+		j.SourceURL = "https://www.trucore.xyz"
+	default:
+		j.Source = "Custom"
+	}
+
+	// Compute auth status
+	hasHealth := strings.TrimSpace(server.HealthURL) != ""
+	isPostOnly := server.ProbeMethod == "POST"
+	descAuth := strings.Contains(strings.ToLower(server.Description), "auth required") ||
+		strings.Contains(strings.ToLower(server.Description), "bring your own")
+	if !hasHealth {
+		j.Auth = "unknown"
+	} else if isPostOnly || descAuth {
+		j.Auth = "auth-required"
+	} else {
+		j.Auth = "public"
+	}
+
+	// Extract tool info from description (Smithery servers have " — tools: name1, name2, ...")
+	if idx := strings.Index(server.Description, " — tools: "); idx >= 0 {
+		toolsStr := server.Description[idx+len(" — tools: "):]
+		if end := strings.Index(toolsStr, " ["); end >= 0 {
+			toolsStr = toolsStr[:end]
+		}
+		names := strings.Split(toolsStr, ", ")
+		j.ToolNames = names
+		j.ToolCount = len(names)
+	}
+
+	// Build curl snippet for lazy MCP usage
+	if server.ServerURL != "" {
+		j.CurlSnippet = fmt.Sprintf(
+			`python3 ~/repo/hermes-trading/.hermes/scripts/lazymcp.py call --url %s --tool <tool> --args '{"key":"value"}'`,
+			server.ServerURL)
+	}
+
+	return j
 }
 
 type registerServerRequest struct {

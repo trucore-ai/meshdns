@@ -50,6 +50,16 @@ The POST probe sends a valid MCP initialize request:
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meshdns-health","version":"1.0.0"}}}
 Servers without a health_url are declared healthy by default.
 
+## Catalog Sources
+
+MeshDNS is populated from multiple MCP server registries:
+
+- **MCP Official Registry** (registry.modelcontextprotocol.io) — 5,437 servers, probed for health
+- **Smithery** (registry.smithery.ai) — 10,699 listed, 114 with deployment URLs, tools pre-discovered from Smithery API
+- **npm** (npmjs.com) — 240 MCP server packages with GitHub repositories, keyword-tagged
+
+All sources synced via catalog_sync.py (dump, probe, register). Re-run anytime from ~/repo/ventures/meshdns/scripts/.
+
 ## SDKs
 - Python: pip install meshdns-client
   from meshdns_client import MeshDNSClient

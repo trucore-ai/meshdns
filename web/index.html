@@ -319,6 +319,85 @@
       text-align: right;
     }
 
+    /* Server card badges */
+    .meta-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 500;
+      color: #c4b5fd;
+      background: rgba(167, 139, 250, 0.08);
+      border: 1px solid rgba(167, 139, 250, 0.18);
+      border-radius: 999px;
+      padding: 2px 7px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .source-badge:hover {
+      background: rgba(167, 139, 250, 0.14);
+      border-color: rgba(167, 139, 250, 0.3);
+    }
+
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 500;
+      border-radius: 999px;
+      padding: 2px 7px;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+    .auth-badge.auth-public {
+      color: #bbf7d0;
+      background: rgba(52, 211, 153, 0.08);
+      border-color: rgba(52, 211, 153, 0.2);
+    }
+    .auth-badge.auth-auth-required {
+      color: #fecdd3;
+      background: rgba(251, 113, 133, 0.08);
+      border-color: rgba(251, 113, 133, 0.2);
+    }
+
+    .tool-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 500;
+      color: #67e8f9;
+      background: rgba(103, 232, 249, 0.08);
+      border: 1px solid rgba(103, 232, 249, 0.2);
+      border-radius: 999px;
+      padding: 2px 7px;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .copy-curl {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 4px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .copy-curl:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
     .incident {
       min-height: 84px;
       display: flex;
@@ -809,8 +888,7 @@
               <th style="width: 28%;">Description</th>
               <th style="width: 22%;">Capabilities</th>
               <th style="width: 10%;">Status</th>
-              <th style="width: 10%;">Uptime 30d</th>
-              <th class="right" style="width: 12%;">Last checked</th>
+              <th class="right" style="width: 22%;">Health / Copy</th>
             </tr>
           </thead>
           <tbody id="servers-body">
@@ -1073,30 +1151,66 @@ document.querySelector('.filter-chip[data-capability=""]').addEventListener('cli
       const data = await fetchJSON(url);
       const rows = data.servers || [];
       if (!rows.length) {
-        serversBody.innerHTML = '<tr><td colspan="6" class="muted">No servers registered yet.</td></tr>';
+        serversBody.innerHTML = '<tr><td colspan="5" class="muted">No servers registered yet.</td></tr>';
       } else {
         serversBody.innerHTML = rows.map((server) => {
           const statusClass = server.up ? 'up' : 'down';
           const statusLabel = server.up ? 'up' : 'down';
           const uptime = Number(server.uptime_30d || 0);
           const uptimeLabel = Number.isFinite(uptime) ? `${(uptime * 100).toFixed(1)}%` : 'n/a';
-          return `
+          const source = server.source || '';
+          const sourceURL = server.source_url || '';
+          const sourceBadge = source && source !== 'Custom'
+            ? `<a class="source-badge" href="${escapeHTML(sourceURL)}" target="_blank" rel="noopener" title="Catalogued from ${escapeHTML(source)}">${escapeHTML(source)}</a>`
+            : '';
+          const auth = server.auth || '';
+          const authBadge = auth && auth !== 'unknown'
+            ? `<span class="auth-badge auth-${auth}">${auth === 'public' ? 'public' : 'auth required'}</span>`
+            : '';
+          const toolCount = server.tool_count || 0;
+          const toolBadge = toolCount > 0
+            ? `<span class="tool-badge" title="${escapeHTML((server.tool_names || []).join(', '))}">${toolCount} tool${toolCount !== 1 ? 's' : ''}</span>`
+            : '';
+          const curl = server.curl_snippet || '';
+          return ` + "`" + `
             <tr>
               <td>
                 <div class="name">${escapeHTML(server.name || server.id || '')}</div>
+                <div class="meta-row">${sourceBadge}${authBadge}${toolBadge}</div>
               </td>
               <td>
                 <div class="description" title="${escapeHTML(server.description || '')}">${escapeHTML(truncateDescription(server.description || ''))}</div>
               </td>
               <td><div class="capabilities">${renderCapabilities(server.capabilities || [])}</div></td>
               <td><span class="badge ${statusClass}">${statusLabel}</span></td>
-              <td>${uptimeLabel}</td>
-              <td class="right">${escapeHTML(shortDate(server.last_checked_at))}</td>
+              <td class="right">
+                <div>${uptimeLabel}</div>
+                <div class="muted" style="font-size:11px">${escapeHTML(shortDate(server.last_checked_at))}</div>
+                ${curl ? `<button class="copy-curl" onclick="copyCurl(this, '${escapeHTML(server.server_url)}')" title="Copy lazy MCP call">📋</button>` : ''}
+              </td>
             </tr>
-          `;
+          ` + "`" + `;
         }).join('');
       }
       serversUpdated.textContent = 'Updated just now';
+    }
+
+    function copyCurl(btn, serverUrl) {
+      const cmd = `python3 ~/repo/hermes-trading/.hermes/scripts/lazymcp.py workflow --url ${serverUrl} --limit 3`;
+      navigator.clipboard.writeText(cmd).then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '📋'; }, 2000);
+      }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = cmd;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '📋'; }, 2000);
+      });
     }
 
     async function refreshDashboard() {

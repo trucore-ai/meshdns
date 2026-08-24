@@ -111,6 +111,20 @@ Additional endpoints: `GET /` (landing page), `GET /v0/export` (full registry ex
 
 ---
 
+## Catalog Sources
+
+MeshDNS ingests from multiple MCP server registries:
+
+| Source | Servers | Notes |
+|--------|---------|-------|
+| [MCP Official Registry](https://registry.modelcontextprotocol.io) | 5,437 | Probed for health — GET + POST auto-detect |
+| [Smithery](https://registry.smithery.ai) | 114 | Deployment URLs resolved via parallel detail API, tools pre-discovered |
+| [npm MCP packages](https://npmjs.com) | 240 | Keyword-matched, GitHub repo URLs, declared healthy |
+
+All sources synced via `catalog_sync.py` in `~/repo/ventures/meshdns/scripts/`. Re-run with `python3 catalog_sync.py all all`.
+
+---
+
 ## Health Checks
 
 MeshDNS probes registered servers every 60s (configurable via `MESHDNS_PROBE_INTERVAL`). The probe logic:
