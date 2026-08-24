@@ -21,6 +21,8 @@ const llmsTxt = `# MeshDNS
 
 ## API
 - POST /v0/servers — Register a server. Returns server_id + write_key.
+  Optional probe_method: GET (default), POST for streamable-HTTP MCP
+  endpoints, or omit for auto-detect.
 - GET /v0/servers — List servers with filters: status, query, capability,
   cursor, limit.
 - PUT /v0/servers/{id} — Update server manifest. Requires write_key.
@@ -29,6 +31,24 @@ const llmsTxt = `# MeshDNS
   uptime.
 - GET /v0/stats — Registry statistics.
 - GET /v0/export — Full registry JSON export. Open data.
+
+## Health Checks
+
+Servers with a health_url are probed every 60s. Probe method:
+
+1. GET by default. If the server answers 2xx, marked UP.
+2. Auto-detect POST-only. If GET fails with 405, any 4xx, or a transport
+   error, MeshDNS retries with a POST MCP initialize request. If that
+   succeeds, the server is marked UP and the method switch is persisted
+   — future probes go straight to POST.
+3. Explicit probe_method:"POST" skips the GET attempt entirely. Set this
+   when registering servers known to be POST-only.
+4. 5s timeout. Non-2xx after POST retry → DOWN.
+5. /v0/resolve never returns DOWN servers.
+
+The POST probe sends a valid MCP initialize request:
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meshdns-health","version":"1.0.0"}}}
+Servers without a health_url are declared healthy by default.
 
 ## SDKs
 - Python: pip install meshdns-client
