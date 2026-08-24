@@ -248,6 +248,55 @@
     .chip {
       color: #cbd5e1;
       background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .chip.active {
+      color: #f8fafc;
+      background: rgba(167, 139, 250, 0.18);
+      border-color: rgba(167, 139, 250, 0.35);
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+      transition: background 200ms ease, color 200ms ease, border-color 200ms ease;
+    }
+
+    .filter-chip:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .filter-chip.active {
+      background: rgba(167, 139, 250, 0.16);
+      border-color: rgba(167, 139, 250, 0.3);
+      color: #c4b5fd;
+    }
+
+    .filter-chip .count {
+      margin-left: 5px;
+      font-size: 10px;
+      opacity: 0.55;
     }
 
     .badge.up {
@@ -419,6 +468,218 @@
         text-align: left;
       }
     }
+
+    /* Skills section */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .skill-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(167, 139, 250, 0.06), rgba(11, 18, 32, 0.6));
+      border: 1px solid rgba(167, 139, 250, 0.14);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 300ms ease, background 300ms ease;
+    }
+
+    .skill-card:hover {
+      border-color: rgba(167, 139, 250, 0.28);
+      background: linear-gradient(180deg, rgba(167, 139, 250, 0.1), rgba(11, 18, 32, 0.8));
+    }
+
+    .skill-card:nth-child(2) {
+      background: linear-gradient(180deg, rgba(148, 163, 184, 0.04), rgba(11, 18, 32, 0.5));
+      border-color: rgba(148, 163, 184, 0.14);
+    }
+
+    .skill-card:nth-child(2):hover {
+      border-color: rgba(148, 163, 184, 0.28);
+    }
+
+    .skill-card:nth-child(3) {
+      background: linear-gradient(180deg, rgba(125, 211, 252, 0.05), rgba(11, 18, 32, 0.6));
+      border-color: rgba(125, 211, 252, 0.14);
+    }
+
+    .skill-card:nth-child(3):hover {
+      border-color: rgba(125, 211, 252, 0.28);
+    }
+
+    .skill-glow {
+      position: absolute;
+      right: -24px;
+      top: -24px;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      opacity: 0.08;
+      transition: opacity 500ms ease;
+    }
+
+    .skill-card:nth-child(1) .skill-glow { background: #a78bfa; }
+    .skill-card:nth-child(2) .skill-glow { background: #94a3b8; }
+    .skill-card:nth-child(3) .skill-glow { background: #7dd3fc; }
+
+    .skill-card:hover .skill-glow { opacity: 0.14; }
+
+    .skill-card-inner { position: relative; }
+
+    .skill-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .skill-card:nth-child(1) .skill-icon { background: rgba(167, 139, 250, 0.14); }
+    .skill-card:nth-child(2) .skill-icon { background: rgba(148, 163, 184, 0.14); }
+    .skill-card:nth-child(3) .skill-icon { background: rgba(125, 211, 252, 0.14); }
+
+    .skill-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 4px;
+    }
+
+    .skill-card:nth-child(1) .skill-label { color: #c4b5fd; }
+    .skill-card:nth-child(2) .skill-label { color: #94a3b8; }
+    .skill-card:nth-child(3) .skill-label { color: #7dd3fc; }
+
+    .skill-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .skill-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 0 0 12px;
+    }
+
+    .skill-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+
+    .skill-tag {
+      font-size: 10px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+
+    .skill-card:nth-child(1) .skill-tag { color: #c4b5fd; background: rgba(167, 139, 250, 0.08); }
+    .skill-card:nth-child(2) .skill-tag { color: #94a3b8; background: rgba(148, 163, 184, 0.08); }
+    .skill-card:nth-child(3) .skill-tag { color: #7dd3fc; background: rgba(125, 211, 252, 0.08); }
+
+    .skill-cmd {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .skill-card:nth-child(1) .skill-cmd { color: #a78bfa; background: rgba(167, 139, 250, 0.06); }
+    .skill-card:nth-child(2) .skill-cmd { color: #94a3b8; background: rgba(148, 163, 184, 0.06); }
+    .skill-card:nth-child(3) .skill-cmd { color: #7dd3fc; background: rgba(125, 211, 252, 0.06); }
+
+    .skills-cta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 16px;
+      padding: 18px;
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), rgba(125, 211, 252, 0.04));
+      border: 1px solid rgba(167, 139, 250, 0.12);
+      border-radius: var(--radius);
+    }
+
+    .skills-cta-text p {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .skills-cta-text .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    .skills-cta-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, rgba(167, 139, 250, 0.25), rgba(167, 139, 250, 0.12));
+      border: 1px solid rgba(167, 139, 250, 0.35);
+      color: #f8fafc;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 200ms ease, background 200ms ease;
+    }
+
+    .btn-primary:hover { border-color: rgba(167, 139, 250, 0.55); background: linear-gradient(180deg, rgba(167, 139, 250, 0.35), rgba(167, 139, 250, 0.18)); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 200ms ease;
+    }
+
+    .btn-secondary:hover { border-color: rgba(255, 255, 255, 0.14); }
+
+    @media (max-width: 860px) {
+      .skills-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .skills-cta {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
   </style>
 </head>
 <body>
@@ -539,6 +800,9 @@
           </div>
           <div class="muted" id="servers-updated">Loading…</div>
         </div>
+        <div class="filter-bar" id="filter-bar">
+          <span class="filter-chip active" data-capability="">All<span class="count" id="filter-total"></span></span>
+        </div>
         <table aria-label="Top servers table">
           <thead>
             <tr>
@@ -609,6 +873,82 @@
         </div>
       </article>
     </section>
+
+    <!-- Agent Skills -->
+    <section style="margin-top: 28px;">
+      <div class="section-title" style="margin-bottom: 12px;">Agent Skills</div>
+      <p style="color: var(--muted); font-size: 14px; margin: 0 0 16px; max-width: 70ch;">
+        MeshDNS ships with three <strong style="color: var(--text);">Hermes Agent skills</strong> — pre-built knowledge packs that
+        agents and developers load on-demand. No config, no restart. Any Hermes agent can discover
+        and call 750+ MCP servers instantly.
+      </p>
+      <div class="skills-grid">
+        <!-- Quickstart -->
+        <div class="skill-card">
+          <div class="skill-glow" aria-hidden="true"></div>
+          <div class="skill-card-inner">
+            <div class="skill-icon">⚡</div>
+            <div class="skill-label">Entry Point</div>
+            <h3 class="skill-name">meshdns-quickstart</h3>
+            <p class="skill-desc">One-stop guide: what MeshDNS is, how to use it, register servers, lazy MCP pattern — all in one load.</p>
+            <div class="skill-tags">
+              <span class="skill-tag">discover</span>
+              <span class="skill-tag">register</span>
+              <span class="skill-tag">lazy-mcp</span>
+              <span class="skill-tag">cheat-sheet</span>
+            </div>
+            <div class="skill-cmd">skill_view('meshdns-quickstart')</div>
+          </div>
+        </div>
+        <!-- Reference -->
+        <div class="skill-card">
+          <div class="skill-glow" aria-hidden="true"></div>
+          <div class="skill-card-inner">
+            <div class="skill-icon">📖</div>
+            <div class="skill-label">Reference</div>
+            <h3 class="skill-name">meshdns</h3>
+            <p class="skill-desc">Full API reference, architecture deep-dive, deployment patterns, health check internals, production ops.</p>
+            <div class="skill-tags">
+              <span class="skill-tag">api-ref</span>
+              <span class="skill-tag">deploy</span>
+              <span class="skill-tag">health-checks</span>
+              <span class="skill-tag">architecture</span>
+            </div>
+            <div class="skill-cmd">skill_view('meshdns')</div>
+          </div>
+        </div>
+        <!-- Lazy MCP -->
+        <div class="skill-card">
+          <div class="skill-glow" aria-hidden="true"></div>
+          <div class="skill-card-inner">
+            <div class="skill-icon">🔌</div>
+            <div class="skill-label">On-Demand</div>
+            <h3 class="skill-name">meshdns-lazy-mcp</h3>
+            <p class="skill-desc">On-the-fly MCP discovery — resolve any of 750+ servers at runtime, call tools, tear down. Zero pre-config.</p>
+            <div class="skill-tags">
+              <span class="skill-tag">zero-config</span>
+              <span class="skill-tag">750+ servers</span>
+              <span class="skill-tag">on-demand</span>
+              <span class="skill-tag">workflow</span>
+            </div>
+            <div class="skill-cmd">skill_view('meshdns-lazy-mcp')</div>
+          </div>
+        </div>
+      </div>
+      <div class="skills-cta">
+        <div class="skills-cta-text">
+          <p>Ready to wire up your agent?</p>
+          <div class="hint">Install the skills in your Hermes profile. Agents discover 750+ MCP servers on demand.</div>
+        </div>
+        <div class="skills-cta-buttons">
+          <a class="btn-primary" href="https://github.com/trucore-ai/meshdns" target="_blank" rel="noopener noreferrer">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L10 6.477V16h2a1 1 0 110 2H8a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.616a1 1 0 01.894-1.79l1.599.8L10 4.323V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+            GitHub &amp; Skills
+          </a>
+          <a class="btn-secondary" href="https://www.trucore.xyz/docs/meshdns#agent-skills" target="_blank" rel="noopener noreferrer">Docs →</a>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -617,6 +957,49 @@
     const statResolutions = document.getElementById('stat-resolutions');
     const statProbes = document.getElementById('stat-probes');
     const serversBody = document.getElementById('servers-body');
+let currentCapability = '';
+let allCapabilities = [];
+
+function refreshFilters() {
+  fetchJSON('/v0/stats').then(stats => {
+    document.getElementById('filter-total').textContent = '' + stats.servers_active;
+  });
+  // Fetch a bigger page to discover capabilities
+  fetchJSON('/v0/servers?limit=200').then(data => {
+    const caps = {};
+    (data.servers || []).forEach(s => {
+      (s.capabilities || []).forEach(c => {
+        caps[c] = (caps[c] || 0) + 1;
+      });
+    });
+    allCapabilities = Object.entries(caps).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const bar = document.getElementById('filter-bar');
+    // Keep the "All" chip, replace everything else
+    bar.querySelectorAll('.filter-chip:not([data-capability=""])').forEach(e => e.remove());
+    allCapabilities.forEach(([cap, count]) => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip' + (currentCapability === cap ? ' active' : '');
+      chip.setAttribute('data-capability', cap);
+      chip.innerHTML = cap + '<span class="count">' + count + '</span>';
+      chip.addEventListener('click', () => {
+        currentCapability = cap;
+        refreshServers();
+        bar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+      bar.appendChild(chip);
+    });
+  });
+}
+
+// Wire up "All" button
+document.querySelector('.filter-chip[data-capability=""]').addEventListener('click', function() {
+  currentCapability = '';
+  refreshServers();
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  this.classList.add('active');
+});
+
     const serversUpdated = document.getElementById('servers-updated');
     const capabilityInput = document.getElementById('capability-input');
     const resolveButton = document.getElementById('resolve-button');
@@ -684,7 +1067,11 @@
     }
 
     async function refreshServers() {
-      const data = await fetchJSON('/v0/servers?limit=20');
+      let url = '/v0/servers?limit=20';
+      if (currentCapability) {
+        url += '&capability=' + encodeURIComponent(currentCapability);
+      }
+      const data = await fetchJSON(url);
       const rows = data.servers || [];
       if (!rows.length) {
         serversBody.innerHTML = '<tr><td colspan="6" class="muted">No servers registered yet.</td></tr>';
@@ -693,7 +1080,7 @@
           const statusClass = server.up ? 'up' : 'down';
           const statusLabel = server.up ? 'up' : 'down';
           const uptime = Number(server.uptime_30d || 0);
-          const uptimeLabel = Number.isFinite(uptime) ? `${uptime.toFixed(1)}%` : 'n/a';
+          const uptimeLabel = Number.isFinite(uptime) ? `${(uptime * 100).toFixed(1)}%` : 'n/a';
           return `
             <tr>
               <td>
@@ -715,7 +1102,7 @@
 
     async function refreshDashboard() {
       try {
-        await Promise.all([refreshStats(), refreshServers()]);
+        await Promise.all([refreshStats(), refreshServers(), refreshFilters()]);
       } catch (error) {
         setRegistryUnavailable();
       }
@@ -744,6 +1131,7 @@
       }
     });
 
+    refreshFilters();
     refreshDashboard();
     setInterval(refreshDashboard, 30000);
   </script>
