@@ -107,7 +107,27 @@ const servers = await client.resolve("weather");
 | `GET` | `/v0/resolve` | Resolve servers by capability. Query param: `capability` (required). Returns only healthy servers. |
 | `GET` | `/v0/stats` | Registry statistics: active/total servers, up count, resolutions and probes in the last 24h. |
 
-Additional endpoints: `GET /` (landing page), `GET /v0/export` (full registry export).
+Additional endpoints: `GET /` (landing page), `GET /v0/export` (full registry export), `GET /llms.txt` (LLM-readable API reference).
+
+---
+
+## Health Checks
+
+MeshDNS probes registered servers every 60s (configurable via `MESHDNS_PROBE_INTERVAL`). The probe logic:
+
+1. **GET by default.** If the server answers 2xx, it's marked UP.
+2. **Auto-detect POST-only.** If GET fails with 405, any 4xx error, or a transport error, MeshDNS retries with a `POST` MCP `initialize` request. If that succeeds, the server is marked UP and the method switch is persisted — future probes go straight to POST.
+3. **Explicit `probe_method: "POST"`** skips the GET attempt entirely. Set this when registering servers known to be POST-only (e.g., streamable-HTTP MCP endpoints).
+4. **5s timeout.** Non-2xx after POST retry → DOWN.
+5. **`/v0/resolve` never returns DOWN servers.**
+
+The POST probe sends a standards-compliant MCP initialize:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meshdns-health","version":"1.0.0"}}}
+```
+
+Servers without a `health_url` are declared healthy by default. 30-day uptime is tracked per server and used for ranking in resolve results.
 
 ---
 
@@ -117,7 +137,7 @@ MeshDNS ships as a **single static binary** with no external dependencies:
 
 - **Go stdlib HTTP server** — no frameworks, no middleware stacks
 - **SQLite** via `modernc.org/sqlite` — pure Go, no CGo, file-based storage
-- **Background health pool** — configurable worker pool probes registered health URLs on a schedule and tracks 30-day uptime
+- **Background health pool** — configurable worker pool probes registered health URLs on a schedule and tracks 30-day uptime. Automatic POST probe detection: if GET returns 405, any 4xx, or a transport error, MeshDNS retries with a `POST` MCP `initialize` request and persists the switch. This discovers streamable-HTTP MCP endpoints that don't answer GET.
 - **Bearer token auth** — every registration returns a `write_key` used to authenticate update/delete operations
 - **Zero infrastructure** — deploy the binary, point it at a volume for the DB, done
 

@@ -299,6 +299,80 @@ func TestPoolAutoDetectsPOSTOnlyEndpoint(t *testing.T) {
 	}
 }
 
+func TestPoolAutoDetectsPOSTOn404(t *testing.T) {
+	st, _ := newTestStore(t)
+	ctrl := newProbeController()
+	const healthURL = "https://post-only-404.example.test/mcp"
+	ctrl.setStatus(healthURL, false, http.StatusNotFound, 5)
+	ctrl.setStatus("POST "+healthURL, true, http.StatusOK, 8)
+
+	mustCreate(t, st, store.Server{
+		ID:        "srv-post-404",
+		Name:      "post-404",
+		ServerURL: "https://post-only-404.example.test",
+		HealthURL: healthURL,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := Start(ctx, st, 50*time.Millisecond, 200*time.Millisecond, 2)
+	pool.SetProbeFunc(ctrl.probe)
+	defer func() {
+		cancel()
+		<-pool.Done()
+	}()
+
+	if err := waitForState(t, st, "srv-post-404", func(s store.Server) bool {
+		return s.Up && s.LastCheckedAt != ""
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := st.GetServer("srv-post-404")
+	if err != nil {
+		t.Fatalf("GetServer = %v", err)
+	}
+	if server.ProbeMethod != http.MethodPost {
+		t.Fatalf("ProbeMethod = %q, want %q (auto-detected on 404)", server.ProbeMethod, http.MethodPost)
+	}
+}
+
+func TestPoolAutoDetectsPOSTOnTransportError(t *testing.T) {
+	st, _ := newTestStore(t)
+	ctrl := newProbeController()
+	const healthURL = "https://transport-error.example.test/mcp"
+	ctrl.setStatus(healthURL, false, 0, 0) // transport error (status=0)
+	ctrl.setStatus("POST "+healthURL, true, http.StatusOK, 10)
+
+	mustCreate(t, st, store.Server{
+		ID:        "srv-transport",
+		Name:      "transport-err",
+		ServerURL: "https://transport-error.example.test",
+		HealthURL: healthURL,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := Start(ctx, st, 50*time.Millisecond, 200*time.Millisecond, 2)
+	pool.SetProbeFunc(ctrl.probe)
+	defer func() {
+		cancel()
+		<-pool.Done()
+	}()
+
+	if err := waitForState(t, st, "srv-transport", func(s store.Server) bool {
+		return s.Up && s.LastCheckedAt != ""
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := st.GetServer("srv-transport")
+	if err != nil {
+		t.Fatalf("GetServer = %v", err)
+	}
+	if server.ProbeMethod != http.MethodPost {
+		t.Fatalf("ProbeMethod = %q, want %q (auto-detected on transport error)", server.ProbeMethod, http.MethodPost)
+	}
+}
+
 func TestDefaultProbePOSTSendsMCPInitialize(t *testing.T) {
 	var gotMethod, gotContentType, gotAccept, gotBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

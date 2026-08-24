@@ -186,14 +186,20 @@ func (p *Pool) runProbe(serverID, url, probeMethod string) {
 	ts := time.Now().UTC().Format(time.RFC3339)
 	result := p.probe(context.Background(), probeMethod, url)
 
-	// Auto-detect POST-only endpoints (e.g. MCP streamable-HTTP servers that
-	// answer GET with 405). If a POST MCP initialize probe succeeds, persist
-	// the switch so future probes go straight to POST.
-	if !result.Up && result.Status == http.StatusMethodNotAllowed && probeMethod != http.MethodPost {
-		post := p.probe(context.Background(), http.MethodPost, url)
-		if post.Up {
-			_ = p.st.SetServerProbeMethod(serverID, http.MethodPost)
-			result = post
+	// Auto-detect POST-only endpoints. Three cases trigger a POST retry:
+	//   1. 405 Method Not Allowed — explicit "this is a POST-only endpoint"
+	//   2. 4xx (non-405) — many MCP servers reject GET with 404
+	//   3. Transport errors (status=0) — server might only respond to POST
+	// Only retry when probeMethod is not already POST (avoids infinite loop).
+	if !result.Up && probeMethod != http.MethodPost {
+		if result.Status == http.StatusMethodNotAllowed ||
+			(result.Status >= 400 && result.Status < 500 && result.Status != http.StatusMethodNotAllowed) ||
+			result.Status == 0 {
+			post := p.probe(context.Background(), http.MethodPost, url)
+			if post.Up {
+				_ = p.st.SetServerProbeMethod(serverID, http.MethodPost)
+				result = post
+			}
 		}
 	}
 

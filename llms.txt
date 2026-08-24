@@ -6,7 +6,19 @@
 `go install github.com/trucore-ai/meshdns/cmd/meshdns@latest`
 
 ## API
-- `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default) or `POST` for POST-only endpoints (e.g. MCP streamable-HTTP); unset = GET with auto-detect (a 405 answer triggers an MCP `initialize` POST probe and persists the switch).
+- `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default), `POST` for streamable-HTTP MCP endpoints, or omit for auto-detect — MeshDNS auto-detects POST-only at runtime (see Health Checks).
+
+## Health Checks
+
+Servers with a `health_url` are probed every 60s (default). Probe method:
+
+1. **GET by default.** If the server answers 2xx, it's marked UP.
+2. **Auto-detect POST-only.** If GET fails with **405, any 4xx error, or a transport error (connection refused/timeout)**, MeshDNS retries with a `POST` MCP `initialize` request. If that succeeds, the server is marked UP and the method switch is persisted — future probes go straight to POST.
+3. **Explicit `probe_method: "POST"`** skips the GET attempt entirely. Set this when registering servers known to be POST-only (e.g., streamable-HTTP MCP endpoints).
+4. **5s timeout.** Non-2xx after POST retry → marked DOWN.
+5. **`/v0/resolve` never returns DOWN servers.**
+
+The POST probe sends a valid MCP `initialize` request (`jsonrpc: "2.0"`, `method: "initialize"`, `protocolVersion: "2025-06-18"`) with `Accept: application/json, text/event-stream`. This works with all standards-compliant streamable-HTTP MCP servers.
 - `GET /v0/servers` — List servers with filters: status, query, capability, cursor, limit.
 - `PUT /v0/servers/{id}` — Update server manifest. Requires write_key.
 - `DELETE /v0/servers/{id}` — Delist (soft-delete). Requires write_key.
