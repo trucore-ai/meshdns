@@ -18,6 +18,18 @@ const llmsTxt = `# MeshDNS
 
 ## Install
   go install github.com/trucore-ai/meshdns/cmd/meshdns@latest
+  go install github.com/trucore-ai/meshdns/cmd/meshdns-cli@latest
+
+## CLI (meshdns-cli)
+- meshdns-cli register — Register a server. Returns server_id + write_key.
+- meshdns-cli list — List servers with --query, --capability, --status, --limit.
+- meshdns-cli resolve <capability> — Find UP servers ranked by uptime.
+- meshdns-cli stats — Live registry statistics.
+- meshdns-cli status <name-or-id> — Detailed single-server view.
+- meshdns-cli capabilities — List all capabilities with server counts.
+- meshdns-cli delist <name-or-id> — Soft-delete (requires --write-key).
+- meshdns-cli doctor — Health check, exits 0 if reachable.
+  All commands support --json. Errors include suggested_command for recovery.
 
 ## API
 - POST /v0/servers — Register a server. Returns server_id + write_key.
@@ -25,6 +37,8 @@ const llmsTxt = `# MeshDNS
   endpoints, or omit for auto-detect.
 - GET /v0/servers — List servers with filters: status, query, capability,
   cursor, limit.
+- GET /v0/servers/{id} — Single server lookup by ID.
+- GET /v0/capabilities — List all capabilities with active server counts.
 - PUT /v0/servers/{id} — Update server manifest. Requires write_key.
 - DELETE /v0/servers/{id} — Delist (soft-delete). Requires write_key.
 - GET /v0/resolve?capability=<name> — Returns UP servers ranked by 30-day
