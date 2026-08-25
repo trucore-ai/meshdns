@@ -939,6 +939,7 @@
               <li>GET /v0/resolve</li>
               <li>GET /v0/servers</li>
               <li>GET /v0/servers/{id}</li>
+<li>GET /v0/servers/{id}</li>
               <li>POST /v0/servers</li>
               <li>GET /v0/capabilities</li>
               <li>GET /v0/export</li>
@@ -1031,6 +1032,87 @@
       </div>
     </section>
 
+</section>
+
+<!-- CLI Section -->
+<section style="margin-top: 28px;">
+  <div class="section-title" style="margin-bottom: 12px;">CLI Tool</div>
+  <div class="grid cards" style="margin-top: 0;">
+    <article class="panel section" style="grid-column: 1 / -1;">
+      <p style="color: var(--muted); font-size: 14px; margin: 0 0 16px; max-width: 74ch;">
+        <strong style="color: var(--text);">meshdns-cli</strong> — a single Go binary, zero dependencies.
+        Every command speaks both <strong style="color: var(--accent-2);">--json</strong> for agents and human-readable for developers.
+        Installed alongside the server binary.
+      </p>
+      <table aria-label="CLI commands" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th style="width: 22%;">Command</th>
+            <th style="width: 48%;">What it does</th>
+            <th style="width: 30%;">Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 700;">register</td>
+            <td>Register a new MCP server in the registry</td>
+            <td style="font-size: 11px; color: var(--accent);">meshdns-cli register --name my-server --server-url https://...</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">list</td>
+            <td>List servers with filters (query, capability, status)</td>
+            <td style="font-size: 11px; color: var(--accent-2);">meshdns-cli list --capability web-search --json</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">resolve</td>
+            <td>Find UP servers by capability, ranked by uptime</td>
+            <td style="font-size: 11px; color: var(--accent);">meshdns-cli resolve weather</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">stats</td>
+            <td>Live registry statistics (active, up, resolutions/24h)</td>
+            <td style="font-size: 11px; color: var(--accent-2);">meshdns-cli stats --json</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">status</td>
+            <td>Detailed view of a single server by name or ID</td>
+            <td style="font-size: 11px; color: var(--accent);">meshdns-cli status my-server</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">capabilities</td>
+            <td>List all capabilities with server counts</td>
+            <td style="font-size: 11px; color: var(--accent-2);">meshdns-cli capabilities</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">delist</td>
+            <td>Soft-delete a server (requires write key)</td>
+            <td style="font-size: 11px; color: var(--accent);">meshdns-cli delist my-server --write-key &lt;key&gt;</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">doctor</td>
+            <td>Health check — exits 0 if the registry is reachable</td>
+            <td style="font-size: 11px; color: var(--accent-2);">meshdns-cli doctor</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 16px; padding: 14px; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <code style="font-family: var(--mono); font-size: 12px; color: #c4b5fd; background: rgba(167,139,250,0.08); padding: 6px 12px; border-radius: 8px;">go install github.com/trucore-ai/meshdns/cmd/meshdns-cli@latest</code>
+          <span style="color: var(--muted); font-size: 12px;">— or —</span>
+          <code style="font-family: var(--mono); font-size: 12px; color: #7dd3fc; background: rgba(125,211,252,0.08); padding: 6px 12px; border-radius: 8px;">meshdns-cli --help</code>
+          <span style="color: var(--muted); font-size: 12px;">after building from source</span>
+        </div>
+      </div>
+      <p style="color: var(--muted); font-size: 12px; margin: 12px 0 0;">
+        Built for <strong style="color: var(--text);">agent-first</strong> design. Every command supports <code style="font-family: var(--mono); color: var(--accent-2);">--json</code> for machine-readable output.
+        Errors include a <code style="font-family: var(--mono); color: var(--accent-2);">suggested_command</code> field — copy-paste the fix directly.
+        Default output is human-readable. <a href="https://github.com/trucore-ai/meshdns" style="color: var(--accent);">View source →</a>
+      </p>
+    </article>
+  </div>
+</section>
+
+<!-- Agent Skills -->
     <!-- Agent Skills -->
     <section style="margin-top: 28px;">
       <div class="section-title" style="margin-bottom: 12px;">Agent Skills</div>
@@ -1208,7 +1290,10 @@ document.querySelector('.filter-chip[data-capability=""]').addEventListener('cli
     }
 
     async function fetchJSON(path) {
-      const response = await fetch(path, { headers: { Accept: 'application/json' } });
+      var url = (window.location.origin && window.location.origin !== 'null')
+        ? window.location.origin + path
+        : path;
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -1252,24 +1337,24 @@ document.querySelector('.filter-chip[data-capability=""]').addEventListener('cli
             ? `<span class="tool-badge" title="${escapeHTML((server.tool_names || []).join(', '))}">${toolCount} tool${toolCount !== 1 ? 's' : ''}</span>`
             : '';
           const curl = server.curl_snippet || '';
-          return ` + "`" + `
-            <tr>
-              <td>
-                <div class="name">${escapeHTML(server.name || server.id || '')}</div>
-                <div class="meta-row">${sourceBadge}${authBadge}${toolBadge}</div>
-              </td>
-              <td>
-                <div class="description" title="${escapeHTML(server.description || '')}">${escapeHTML(truncateDescription(server.description || ''))}</div>
-              </td>
-              <td><div class="capabilities">${renderCapabilities(server.capabilities || [])}</div></td>
-              <td><span class="badge ${statusClass}">${statusLabel}</span></td>
-              <td class="right">
-                <div>${uptimeLabel}</div>
-                <div class="muted" style="font-size:11px">${escapeHTML(shortDate(server.last_checked_at))}</div>
-                ${curl ? `<button class="copy-curl" onclick="copyCurl(this, '${escapeHTML(server.server_url)}')" title="Copy lazy MCP call">📋</button>` : ''}
-              </td>
-            </tr>
-          ` + "`" + `;
+var row = '';
+row += '<tr>';
+row += '<td>';
+row += '<div class="name">' + escapeHTML(server.name || server.id || '') + '</div>';
+row += '<div class="meta-row">' + sourceBadge + authBadge + toolBadge + '</div>';
+row += '</td>';
+row += '<td>';
+row += '<div class="description" title="' + escapeHTML(server.description || '') + '">' + escapeHTML(truncateDescription(server.description || '')) + '</div>';
+row += '</td>';
+row += '<td><div class="capabilities">' + renderCapabilities(server.capabilities || []) + '</div></td>';
+row += '<td><span class="badge ' + statusClass + '">' + statusLabel + '</span></td>';
+row += '<td class="right">';
+row += '<div>' + uptimeLabel + '</div>';
+row += '<div class="muted" style="font-size:11px">' + escapeHTML(shortDate(server.last_checked_at)) + '</div>';
+row += curl ? '<button class="copy-curl" onclick="copyCurl(this, \'' + escapeHTML(server.server_url).replace(/'/g, "\\'") + '\')" title="Copy lazy MCP call">📋</button>' : '';
+row += '</td>';
+row += '</tr>';
+return row;
         }).join('');
       }
       serversUpdated.textContent = 'Updated just now';
