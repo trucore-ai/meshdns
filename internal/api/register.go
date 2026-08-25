@@ -83,7 +83,7 @@ func toServerJSON(server store.Server) serverJSON {
 	case strings.Contains(desc, "official mcp registry") || strings.Contains(contact, "official mcp registry"):
 		j.Source = "MCP Registry"
 		j.SourceURL = "https://registry.modelcontextprotocol.io"
-	case strings.Contains(desc, "trucore") || server.Name == "meshdns-registry":
+	case strings.Contains(desc, "trucore") || strings.Contains(contact, "trucore") || server.Name == "meshdns-registry" || server.Name == "meshdns" || server.Name == "x402fuel" || server.Name == "trucore-site" || server.Name == "trading-lab-ui" || server.Name == "deepwiki-mcp" || server.Name == "smithery" || server.Name == "mcp-official-registry" || server.Name == "atf-firewall" || strings.Contains(server.ServerURL, "trucore.xyz"):
 		j.Source = "TruCore"
 		j.SourceURL = "https://www.trucore.xyz"
 	default:
