@@ -103,16 +103,10 @@ func toServerJSON(server store.Server) serverJSON {
 		j.Auth = "public"
 	}
 
-	// Extract tool info from description (Smithery servers have " — tools: name1, name2, ...")
-	if idx := strings.Index(server.Description, " — tools: "); idx >= 0 {
-		toolsStr := server.Description[idx+len(" — tools: "):]
-		if end := strings.Index(toolsStr, " ["); end >= 0 {
-			toolsStr = toolsStr[:end]
-		}
-		names := strings.Split(toolsStr, ", ")
-		j.ToolNames = names
-		j.ToolCount = len(names)
-	}
+	// Extract tool info from description
+	names := extractToolNames(server.Description)
+	j.ToolNames = names
+	j.ToolCount = len(names)
 
 	// Build curl snippet for lazy MCP usage
 	if server.ServerURL != "" {
@@ -440,5 +434,71 @@ func validateProbeMethod(method string) string {
 	default:
 		return "must be one of: GET, POST (empty = GET with auto-detect)"
 	}
+}
+
+// extractToolNames extracts tool names from a server description using multiple patterns:
+// - Smithery: " — tools: name1, name2 [...]"
+// - "Provides:" or "provides:" followed by a comma-separated list
+// - Comma-separated list in parentheses after "tools"
+// - "Tools:" at the start of a new line
+func extractToolNames(description string) []string {
+	seen := make(map[string]struct{})
+	var names []string
+
+	addNames := func(raw string) {
+		for _, n := range strings.Split(raw, ",") {
+			n = strings.TrimSpace(n)
+			// Clean up trailing bracket artifacts: "name1, name2 [rest" → "name2"
+			if idx := strings.IndexByte(n, '['); idx >= 0 {
+				n = strings.TrimSpace(n[:idx])
+			}
+			if n == "" {
+				continue
+			}
+			if _, ok := seen[n]; !ok {
+				seen[n] = struct{}{}
+				names = append(names, n)
+			}
+		}
+	}
+
+	// Pattern 1: Smithery " — tools: name1, name2 [...]"
+	if idx := strings.Index(description, " — tools: "); idx >= 0 {
+		rest := description[idx+len(" — tools: "):]
+		if end := strings.IndexByte(rest, '['); end >= 0 {
+			rest = rest[:end]
+		}
+		addNames(rest)
+	}
+
+	// Pattern 2: "Provides:" or "provides:" followed by a list
+	for _, prefix := range []string{"Provides:", "provides:"} {
+		if idx := strings.Index(description, prefix); idx >= 0 {
+			rest := strings.TrimSpace(description[idx+len(prefix):])
+			// Take until newline, period, or bracket
+			if end := strings.IndexAny(rest, "\n.["); end >= 0 {
+				rest = rest[:end]
+			}
+			addNames(rest)
+		}
+	}
+
+	// Pattern 3: "tools (name1, name2, ...)" or similar parenthesized list after "tools"
+	reParenthesized := regexp.MustCompile(`[Tt]ools\s*\(([^)]+)\)`)
+	for _, match := range reParenthesized.FindAllStringSubmatch(description, -1) {
+		if len(match) > 1 {
+			addNames(match[1])
+		}
+	}
+
+	// Pattern 4: "Tools:" at the start of a new line
+	reToolsLine := regexp.MustCompile(`(?m)^Tools:\s*(.+)$`)
+	for _, match := range reToolsLine.FindAllStringSubmatch(description, -1) {
+		if len(match) > 1 {
+			addNames(match[1])
+		}
+	}
+
+	return names
 }
 

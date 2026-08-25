@@ -107,6 +107,7 @@ func (s *Server) Router() *http.ServeMux {
 	mux.HandleFunc("GET /v0/export", s.handleExport)
 	mux.HandleFunc("GET /v0/stats", s.handleStats)
 	mux.HandleFunc("GET /v0/capabilities", s.handleListCapabilities)
+	mux.HandleFunc("GET /v0/tools", s.handleListTools)
 	mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 	return mux
 }

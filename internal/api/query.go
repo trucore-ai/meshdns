@@ -3,7 +3,9 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -197,6 +199,21 @@ type capabilitiesResponse struct {
 	Capabilities []store.CapabilityInfo `json:"capabilities"`
 }
 
+type toolEntry struct {
+	Name         string   `json:"name"`
+	ServerName   string   `json:"server_name"`
+	ServerURL    string   `json:"server_url"`
+	ServerID     string   `json:"server_id"`
+	Uptime30d    float64  `json:"uptime_30d"`
+	Up           bool     `json:"up"`
+	Capabilities []string `json:"capabilities"`
+	CurlSnippet  string   `json:"curl_snippet"`
+}
+
+type listToolsResponse struct {
+	Tools []toolEntry `json:"tools"`
+}
+
 func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	serverID := r.PathValue("id")
 	server, err := s.store.GetServer(serverID)
@@ -218,4 +235,98 @@ func (s *Server) handleListCapabilities(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, capabilitiesResponse{Capabilities: caps})
+}
+
+func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	query := strings.TrimSpace(params.Get("query"))
+	limit := toolsLimit(params.Get("limit"))
+
+	// Fetch active servers; pass query so store can pre-filter on name/description
+	servers, _, err := s.store.ListServers(query, "", "active", "", 0)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to list servers")
+		return
+	}
+
+	type toolWithServer struct {
+		tool  string
+		entry toolEntry
+	}
+	var tools []toolWithServer
+
+	seen := make(map[string]struct{}) // dedupe: serverID + ":" + toolName
+
+	for _, server := range servers {
+		names := extractToolNames(server.Description)
+		for _, name := range names {
+			// If a query is provided, only include tools whose name contains the query
+			if query != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
+				continue
+			}
+			key := server.ID + ":" + name
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+
+			// Build curl snippet
+			var curl string
+			if server.ServerURL != "" {
+				curl = fmt.Sprintf(
+					`python3 ~/repo/hermes-trading/.hermes/scripts/lazymcp.py call --url %s --tool %s --args '{"key":"value"}'`,
+					server.ServerURL, name)
+			}
+
+			caps := make([]string, len(server.Capabilities))
+			copy(caps, server.Capabilities)
+
+			tools = append(tools, toolWithServer{
+				tool: name,
+				entry: toolEntry{
+					Name:         name,
+					ServerName:   server.Name,
+					ServerURL:    server.ServerURL,
+					ServerID:     server.ID,
+					Uptime30d:    server.Uptime30d,
+					Up:           server.Up,
+					Capabilities: caps,
+					CurlSnippet:  curl,
+				},
+			})
+		}
+	}
+
+	// Sort alphabetically by tool name
+	sort.Slice(tools, func(i, j int) bool {
+		return strings.ToLower(tools[i].tool) < strings.ToLower(tools[j].tool)
+	})
+
+	// Cap results
+	if limit > 0 && len(tools) > limit {
+		tools = tools[:limit]
+	}
+
+	entries := make([]toolEntry, len(tools))
+	for i, t := range tools {
+		entries[i] = t.entry
+	}
+
+	writeJSON(w, http.StatusOK, listToolsResponse{Tools: entries})
+}
+
+func toolsLimit(raw string) int {
+	if raw == "" {
+		return 50
+	}
+
+	limit, err := strconv.Atoi(raw)
+	if err != nil || limit <= 0 {
+		return 50
+	}
+	if limit > 200 {
+		return 200
+	}
+
+	return limit
 }
