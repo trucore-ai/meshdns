@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -72,17 +73,24 @@ func Start(ctx context.Context, st *store.Store, interval, timeout time.Duration
 
 	p := &Pool{
 		st:     st,
-		client: &http.Client{Timeout: timeout},
+		client: &http.Client{
+			Timeout: timeout,
+			Transport: &http.Transport{
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 		jobs:   make(chan job, workers*32),
 		done:   make(chan struct{}),
 	}
 	p.SetProbeFunc(defaultProbe)
 
-	p.wg.Add(1 + workers)
+	p.wg.Add(2 + workers)
 	go p.schedule(ctx, interval, timeout)
 	for i := 0; i < workers; i++ {
 		go p.worker(ctx)
 	}
+	go p.pruner(ctx, 10*time.Minute)
 	go func() {
 		p.wg.Wait()
 		close(p.done)
@@ -213,7 +221,13 @@ func (p *Pool) runProbe(serverID, url, probeMethod string) {
 		"result":     up,
 		"latency_ms": latencyMs,
 	}, "")
-	uptime30d, err := p.st.GetUptime30d(serverID)
+	if err := p.st.IncrementProbeCount(serverID, up); err != nil {
+		return
+	}
+	if err := p.st.UpdateLatencyStats(serverID, latencyMs); err != nil {
+		return
+	}
+	uptime30d, err := p.st.ComputeUptimeFromCounters(serverID)
 	if err != nil {
 		return
 	}
@@ -226,6 +240,34 @@ func (p *Pool) declareHealthy(serverID string, now time.Time) error {
 		return err
 	}
 	return p.st.SetServerState(serverID, true, now.Format(time.RFC3339), uptime30d)
+}
+
+func (p *Pool) pruner(ctx context.Context, interval time.Duration) {
+	defer p.wg.Done()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			deleted, err := p.st.PruneProbes(30)
+			if err != nil {
+				log.Printf("[WARN] [pruner] probe prune failed: %v", err)
+			} else if deleted > 0 {
+				log.Printf("[INFO] [pruner] pruned %d probes older than 30 days", deleted)
+			}
+			deleted, err = p.st.PruneEvents(90)
+			if err != nil {
+				log.Printf("[WARN] [pruner] event prune failed: %v", err)
+			} else if deleted > 0 {
+				log.Printf("[INFO] [pruner] pruned %d events older than 90 days", deleted)
+			}
+			if err := p.st.RebuildAllUptimeCounters(); err != nil {
+				log.Printf("[WARN] [pruner] uptime rebuild failed: %v", err)
+			}
+		}
+	}
 }
 
 func (p *Pool) targets() ([]serverTarget, error) {

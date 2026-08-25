@@ -44,7 +44,12 @@ CREATE TABLE IF NOT EXISTS server_state (
 	server_id TEXT PRIMARY KEY,
 	up INTEGER NOT NULL DEFAULT 0,
 	last_checked_at TEXT,
-	uptime_30d REAL NOT NULL DEFAULT 0
+	uptime_30d REAL NOT NULL DEFAULT 0,
+	probe_count_30d INTEGER NOT NULL DEFAULT 0,
+	up_count_30d INTEGER NOT NULL DEFAULT 0,
+	avg_latency_ms INTEGER NOT NULL DEFAULT 0,
+	latency_p50_ms INTEGER NOT NULL DEFAULT 0,
+	resolution_count_24h INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS events (
 	id INTEGER PRIMARY KEY,
@@ -58,20 +63,23 @@ type Store struct {
 }
 
 type Server struct {
-	ID            string
-	Name          string
-	Description   string
-	ServerURL     string
-	HealthURL     string
-	OwnerContact  string
-	Status        string
-	ProbeMethod   string
-	Capabilities  []string
-	CreatedAt     string
-	UpdatedAt     string
-	Up            bool
-	LastCheckedAt string
-	Uptime30d     float64
+	ID               string
+	Name             string
+	Description      string
+	ServerURL        string
+	HealthURL        string
+	OwnerContact     string
+	Status           string
+	ProbeMethod      string
+	Capabilities     []string
+	CreatedAt        string
+	UpdatedAt        string
+	Up               bool
+	LastCheckedAt    string
+	Uptime30d        float64
+	AvgLatencyMs     int
+	LatencyP50Ms     int
+	ResolutionCount  int
 }
 
 func Open(dbPath string) (*Store, error) {
@@ -80,14 +88,22 @@ func Open(dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(1)
-
 	if _, err := db.Exec(migration); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 
 	if err := ensureServerColumns(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	if err := ensureRetentionColumns(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -125,6 +141,48 @@ func ensureServerColumns(db *sql.DB) error {
 	if !hasProbeMethod {
 		if _, err := db.Exec(`ALTER TABLE servers ADD COLUMN probe_method TEXT NOT NULL DEFAULT ''`); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// ensureRetentionColumns adds counter/latency columns introduced for incremental uptime.
+func ensureRetentionColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(server_state)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	has := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dfltValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return err
+		}
+		has[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	cols := []struct{ name, def string }{
+		{"probe_count_30d", "INTEGER NOT NULL DEFAULT 0"},
+		{"up_count_30d", "INTEGER NOT NULL DEFAULT 0"},
+		{"avg_latency_ms", "INTEGER NOT NULL DEFAULT 0"},
+		{"latency_p50_ms", "INTEGER NOT NULL DEFAULT 0"},
+		{"resolution_count_24h", "INTEGER NOT NULL DEFAULT 0"},
+	}
+	for _, col := range cols {
+		if !has[col.name] {
+			if _, err := db.Exec(`ALTER TABLE server_state ADD COLUMN ` + col.name + ` ` + col.def); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -375,7 +433,8 @@ SELECT
 	coalesce(servers.health_url, ''), coalesce(servers.owner_contact, ''), servers.status,
 	coalesce(servers.probe_method, ''),
 	servers.created_at, servers.updated_at,
-	server_state.up, server_state.last_checked_at, server_state.uptime_30d
+	server_state.up, server_state.last_checked_at, server_state.uptime_30d,
+	server_state.avg_latency_ms, server_state.latency_p50_ms, server_state.resolution_count_24h
 FROM servers
 JOIN capabilities ON capabilities.server_id = servers.id
 JOIN server_state ON server_state.server_id = servers.id
@@ -533,7 +592,10 @@ SELECT
 	coalesce(servers.probe_method, ''),
 	servers.created_at, servers.updated_at,
 	coalesce(server_state.up, 0), coalesce(server_state.last_checked_at, ''),
-	coalesce(server_state.uptime_30d, 0)
+	coalesce(server_state.uptime_30d, 0),
+	coalesce(server_state.avg_latency_ms, 0),
+	coalesce(server_state.latency_p50_ms, 0),
+	coalesce(server_state.resolution_count_24h, 0)
 FROM servers
 LEFT JOIN server_state ON server_state.server_id = servers.id`
 }
@@ -559,6 +621,9 @@ func scanServer(scanner serverScanner) (Server, error) {
 		&up,
 		&server.LastCheckedAt,
 		&server.Uptime30d,
+		&server.AvgLatencyMs,
+		&server.LatencyP50Ms,
+		&server.ResolutionCount,
 	)
 	if err != nil {
 		return Server{}, err
@@ -619,4 +684,109 @@ func boolInt(value bool) int {
 
 func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+// CapabilityInfo holds an aggregated capability name with its count.
+type CapabilityInfo struct {
+	Name  string `json:"name"`
+	Count int    `json:"server_count"`
+}
+
+// IncrementProbeCount atomically bumps the probe counter for a server.
+func (s *Store) IncrementProbeCount(serverID string, up bool) error {
+	inc := 0
+	if up {
+		inc = 1
+	}
+	_, err := s.db.Exec(`INSERT INTO server_state (server_id, up, last_checked_at, uptime_30d, probe_count_30d, up_count_30d, avg_latency_ms, latency_p50_ms, resolution_count_24h) VALUES (?, 0, '', 0, 1, ?, 0, 0, 0) ON CONFLICT(server_id) DO UPDATE SET probe_count_30d = probe_count_30d + 1, up_count_30d = up_count_30d + ?`, serverID, inc, inc)
+	return err
+}
+
+// ComputeUptimeFromCounters returns uptime ratio from incremental counters.
+func (s *Store) ComputeUptimeFromCounters(serverID string) (float64, error) {
+	var total, up int
+	err := s.db.QueryRow(`SELECT probe_count_30d, up_count_30d FROM server_state WHERE server_id = ?`, serverID).Scan(&total, &up)
+	if err != nil {
+		return 0, err
+	}
+	if total == 0 {
+		return 1, nil
+	}
+	return float64(up) / float64(total), nil
+}
+
+// UpdateLatencyStats applies EWMA for average and a simple min-tracker for p50.
+func (s *Store) UpdateLatencyStats(serverID string, latencyMs int) error {
+	_, err := s.db.Exec(`INSERT INTO server_state (server_id, up, last_checked_at, uptime_30d, probe_count_30d, up_count_30d, avg_latency_ms, latency_p50_ms, resolution_count_24h) VALUES (?, 0, '', 0, 0, 0, ?, ?, 0) ON CONFLICT(server_id) DO UPDATE SET avg_latency_ms = cast(avg_latency_ms * 0.9 + ? * 0.1 as integer), latency_p50_ms = CASE WHEN ? < latency_p50_ms OR latency_p50_ms = 0 THEN ? ELSE latency_p50_ms END`, serverID, latencyMs, latencyMs, latencyMs, latencyMs, latencyMs)
+	return err
+}
+
+// IncrementResolutionCount bumps the 24h resolution counter.
+func (s *Store) IncrementResolutionCount(serverID string) error {
+	_, err := s.db.Exec(`INSERT INTO server_state (server_id, up, last_checked_at, uptime_30d, probe_count_30d, up_count_30d, avg_latency_ms, latency_p50_ms, resolution_count_24h) VALUES (?, 0, '', 0, 0, 0, 0, 0, 1) ON CONFLICT(server_id) DO UPDATE SET resolution_count_24h = resolution_count_24h + 1`, serverID)
+	return err
+}
+
+// ListCapabilities returns distinct capabilities with active server counts.
+func (s *Store) ListCapabilities() ([]CapabilityInfo, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT c.capability, count(*) as server_count FROM capabilities c JOIN servers s ON s.id = c.server_id WHERE s.status = 'active' GROUP BY c.capability ORDER BY server_count DESC, c.capability`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	caps := make([]CapabilityInfo, 0)
+	for rows.Next() {
+		var c CapabilityInfo
+		if err := rows.Scan(&c.Name, &c.Count); err != nil {
+			return nil, err
+		}
+		caps = append(caps, c)
+	}
+	return caps, rows.Err()
+}
+
+// PruneProbes deletes probes older than the given retention days.
+func (s *Store) PruneProbes(retentionDays int) (int64, error) {
+	cutoff := time.Now().UTC().Add(-time.Duration(retentionDays) * 24 * time.Hour).Format(time.RFC3339)
+	result, err := s.db.Exec(`DELETE FROM probes WHERE ts < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// PruneEvents deletes events older than the given retention days.
+func (s *Store) PruneEvents(retentionDays int) (int64, error) {
+	cutoff := time.Now().UTC().Add(-time.Duration(retentionDays) * 24 * time.Hour).Format(time.RFC3339)
+	result, err := s.db.Exec(`DELETE FROM events WHERE ts < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// RebuildAllUptimeCounters recomputes probe_count_30d and up_count_30d from the probes table.
+func (s *Store) RebuildAllUptimeCounters() error {
+	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	rows, err := s.db.Query(`SELECT server_id, count(*) as total, coalesce(sum(CASE WHEN up = 1 THEN 1 ELSE 0 END), 0) as up_count FROM probes WHERE ts >= ? GROUP BY server_id`, cutoff)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var serverID string
+		var total, upCount int
+		if err := rows.Scan(&serverID, &total, &upCount); err != nil {
+			return err
+		}
+		uptime := 1.0
+		if total > 0 {
+			uptime = float64(upCount) / float64(total)
+		}
+		_, err := s.db.Exec(`INSERT INTO server_state (server_id, up, last_checked_at, uptime_30d, probe_count_30d, up_count_30d, avg_latency_ms, latency_p50_ms, resolution_count_24h) VALUES (?, 0, '', ?, ?, ?, 0, 0, 0) ON CONFLICT(server_id) DO UPDATE SET uptime_30d = ?, probe_count_30d = ?, up_count_30d = ?`, serverID, uptime, total, upCount, uptime, total, upCount)
+		if err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }

@@ -33,6 +33,9 @@ type serverJSON struct {
 	Up            bool     `json:"up"`
 	LastCheckedAt string   `json:"last_checked_at"`
 	Uptime30d     float64  `json:"uptime_30d"`
+	AvgLatencyMs  int      `json:"avg_latency_ms,omitempty"`
+	LatencyP50Ms  int      `json:"latency_p50_ms,omitempty"`
+	ResolutionCount int    `json:"resolution_count_24h,omitempty"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
 	// Computed fields (derived from existing data — not stored in DB)
@@ -60,6 +63,9 @@ func toServerJSON(server store.Server) serverJSON {
 		Up:            server.Up,
 		LastCheckedAt: server.LastCheckedAt,
 		Uptime30d:     server.Uptime30d,
+		AvgLatencyMs:  server.AvgLatencyMs,
+		LatencyP50Ms:  server.LatencyP50Ms,
+		ResolutionCount: server.ResolutionCount,
 		CreatedAt:     server.CreatedAt,
 		UpdatedAt:     server.UpdatedAt,
 	}

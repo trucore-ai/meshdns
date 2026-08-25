@@ -7,3 +7,4 @@ sdk/**/dist/
 sdk/**/package-lock.json
 .env
 *.test.db
+meshdns-cli

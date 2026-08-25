@@ -296,3 +296,78 @@ func gotIDs(servers []serverJSON) string {
 
 	return strings.Join(ids, ",")
 }
+
+func TestHandleGetServer_Found(t *testing.T) {
+	st, _ := newAPITestStore(t)
+	defer st.Close()
+	srv := New(st)
+
+	// Register a server first
+	body := `{"name":"test-get-server","description":"test","server_url":"https://example.com","capabilities":["test"]}`
+	req := httptest.NewRequest("POST", "/v0/servers", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var created map[string]string
+	_ = json.NewDecoder(w.Body).Decode(&created)
+
+	// Get by ID
+	req = httptest.NewRequest("GET", "/v0/servers/"+created["server_id"], nil)
+	w = httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("get status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	var server map[string]interface{}
+	_ = json.NewDecoder(w.Body).Decode(&server)
+	if server["name"] != "test-get-server" {
+		t.Fatalf("name = %#v, want test-get-server", server["name"])
+	}
+}
+
+func TestHandleGetServer_NotFound(t *testing.T) {
+	st, _ := newAPITestStore(t)
+	defer st.Close()
+	srv := New(st)
+
+	req := httptest.NewRequest("GET", "/v0/servers/nonexistent-id", nil)
+	w := httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleListCapabilities(t *testing.T) {
+	st, _ := newAPITestStore(t)
+	defer st.Close()
+	srv := New(st)
+
+	// Register a server with capabilities
+	body := `{"name":"test-caps","description":"test","server_url":"https://example.com","capabilities":["alpha","beta"]}`
+	req := httptest.NewRequest("POST", "/v0/servers", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest("GET", "/v0/capabilities", nil)
+	w = httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("capabilities status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	caps := resp["capabilities"].([]interface{})
+	if len(caps) < 2 {
+		t.Fatalf("capabilities count = %d, want >= 2", len(caps))
+	}
+}

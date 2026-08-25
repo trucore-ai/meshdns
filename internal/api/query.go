@@ -88,6 +88,10 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, server := range servers {
+		_ = s.store.IncrementResolutionCount(server.ID)
+	}
+
 	writeJSON(w, http.StatusOK, serversJSON(servers))
 }
 
@@ -187,4 +191,31 @@ func uaTag(userAgent string) string {
 	}
 
 	return fields[0]
+}
+
+type capabilitiesResponse struct {
+	Capabilities []store.CapabilityInfo `json:"capabilities"`
+}
+
+func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
+	serverID := r.PathValue("id")
+	server, err := s.store.GetServer(serverID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "not_found", "server not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to load server")
+		return
+	}
+	writeJSON(w, http.StatusOK, toServerJSON(server))
+}
+
+func (s *Server) handleListCapabilities(w http.ResponseWriter, r *http.Request) {
+	caps, err := s.store.ListCapabilities()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to list capabilities")
+		return
+	}
+	writeJSON(w, http.StatusOK, capabilitiesResponse{Capabilities: caps})
 }

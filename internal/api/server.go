@@ -89,8 +89,10 @@ func (s *Server) Router() *http.ServeMux {
 	mux.HandleFunc("PUT /v0/servers/{id}", s.handleUpdateServer)
 	mux.HandleFunc("DELETE /v0/servers/{id}", s.handleDeleteServer)
 	mux.HandleFunc("GET /v0/resolve", s.handleResolve)
+	mux.HandleFunc("GET /v0/servers/{id}", s.handleGetServer)
 	mux.HandleFunc("GET /v0/export", s.handleExport)
 	mux.HandleFunc("GET /v0/stats", s.handleStats)
+	mux.HandleFunc("GET /v0/capabilities", s.handleListCapabilities)
 	mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 	return mux
 }
