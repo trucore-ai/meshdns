@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -68,10 +69,15 @@ type ServerWithState struct {
 	LastCheckedAt string   `json:"last_checked_at,omitempty"`
 	OwnerContact  string   `json:"owner_contact,omitempty"`
 	ProbeMethod   string   `json:"probe_method,omitempty"`
-	Source        string   `json:"source,omitempty"`
-	ToolCount     int      `json:"tool_count,omitempty"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
+	// Computed fields (derived from existing data — not stored in DB)
+	Source      string   `json:"source,omitempty"`
+	SourceURL   string   `json:"source_url,omitempty"`
+	Auth        string   `json:"auth,omitempty"`
+	ToolCount   int      `json:"tool_count,omitempty"`
+	ToolNames   []string `json:"tool_names,omitempty"`
+	CurlSnippet string   `json:"curl_snippet,omitempty"`
 }
 
 // --- Validation ---
@@ -124,46 +130,71 @@ func generateWriteKey() string {
 	return hex.EncodeToString(b)
 }
 
-// computeSource derives a source label from server metadata.
-func computeSource(sws store.ServerWithState) string {
+// computeSource derives a source label and URL from server metadata.
+func computeSource(sws store.ServerWithState) (string, string) {
 	desc := strings.ToLower(sws.Description)
 	contact := strings.ToLower(sws.OwnerContact)
 	switch {
 	case strings.Contains(contact, "smithery") || strings.Contains(desc, "smithery"):
-		return "Smithery"
+		return "Smithery", "https://registry.smithery.ai"
 	case strings.Contains(contact, "npm registry") || strings.Contains(desc, "npm"):
-		return "npm"
+		return "npm", "https://www.npmjs.com"
 	case strings.Contains(contact, "mcp registry") || strings.Contains(desc, "mcp registry") || strings.Contains(desc, "official mcp"):
-		return "MCP Registry"
+		return "MCP Registry", "https://registry.modelcontextprotocol.io"
 	case strings.Contains(desc, "trucore") || sws.Name == "meshdns-registry":
-		return "TruCore"
+		return "TruCore", "https://www.trucore.xyz"
 	default:
-		return "manual"
+		return "manual", ""
 	}
 }
 
-// computeToolCount extracts tool count from description (Smithery format: " — tools: name1, name2, ...")
-func computeToolCount(desc string) int {
+// computeAuth determines auth status: public, auth-required, or unknown.
+func computeAuth(sws store.ServerWithState) string {
+	hasHealth := strings.TrimSpace(sws.HealthURL) != ""
+	isPostOnly := sws.ProbeMethod == "POST"
+	descAuth := strings.Contains(strings.ToLower(sws.Description), "auth required") ||
+		strings.Contains(strings.ToLower(sws.Description), "bring your own")
+	if !hasHealth {
+		return "unknown"
+	} else if isPostOnly || descAuth {
+		return "auth-required"
+	}
+	return "public"
+}
+
+// computeToolInfo extracts tool names and count from description (Smithery format: " — tools: name1, name2, ...")
+func computeToolInfo(desc string) ([]string, int) {
 	if idx := strings.Index(desc, " — tools: "); idx >= 0 {
 		toolsStr := desc[idx+len(" — tools: "):]
 		if end := strings.Index(toolsStr, " ["); end >= 0 {
 			toolsStr = toolsStr[:end]
 		}
 		names := strings.Split(toolsStr, ", ")
-		return len(names)
+		return names, len(names)
 	}
-	return 0
+	return nil, 0
+}
+
+// computeCurlSnippet builds a lazy MCP curl command.
+func computeCurlSnippet(serverURL string) string {
+	if serverURL == "" {
+		return ""
+	}
+	return fmt.Sprintf(
+		`python3 ~/repo/hermes-trading/.hermes/scripts/lazymcp.py call --url %s --tool <tool> --args '{"key":"value"}'`,
+		serverURL)
 }
 
 func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
-	source := sws.Source
-	if source == "" {
-		source = computeSource(sws)
+	source, sourceURL := computeSource(sws)
+	if sws.Source != "" {
+		source = sws.Source
 	}
-	toolCount := sws.ToolCount
-	if toolCount == 0 {
-		toolCount = computeToolCount(sws.Description)
+	toolNames, toolCount := computeToolInfo(sws.Description)
+	if sws.ToolCount > 0 {
+		toolCount = sws.ToolCount
 	}
+	curlSnippet := computeCurlSnippet(sws.ServerURL)
 	return ServerWithState{
 		ID:            sws.ID,
 		Name:          sws.Name,
@@ -177,10 +208,14 @@ func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 		LastCheckedAt: sws.LastCheckedAt,
 		OwnerContact:  sws.OwnerContact,
 		ProbeMethod:   sws.ProbeMethod,
-		Source:        source,
-		ToolCount:     toolCount,
 		CreatedAt:     sws.CreatedAt,
 		UpdatedAt:     sws.UpdatedAt,
+		Source:        source,
+		SourceURL:     sourceURL,
+		Auth:          computeAuth(sws),
+		ToolCount:     toolCount,
+		ToolNames:     toolNames,
+		CurlSnippet:   curlSnippet,
 	}
 }
 
@@ -311,14 +346,14 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.Source == "" {
-		result.Source = computeSource(store.ServerWithState{
+		result.Source, result.SourceURL = computeSource(store.ServerWithState{
 			Description:  result.Description,
 			OwnerContact: result.OwnerContact,
 			Name:         result.Name,
 		})
 	}
 	if result.ToolCount == 0 {
-		result.ToolCount = computeToolCount(result.Description)
+		result.ToolNames, result.ToolCount = computeToolInfo(result.Description)
 	}
 
 	if result.Capabilities == nil {
