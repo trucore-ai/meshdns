@@ -1,6 +1,6 @@
-# MeshDNS
+# MeshDNS — Agent Trust Graph
 
-> MCP-native service registry for AI agents. Never hardcode an MCP server again. Register capabilities, resolve by feature, automatic health checks. MIT-licensed.
+> Trust scores for MCP servers. Agents query reliability, latency, cost, and outcome ratings at runtime. Discovery is commoditizing; trust is the unowned layer. MIT-licensed.
 
 ## Install
 `go install github.com/trucore-ai/meshdns/cmd/meshdns@latest`
