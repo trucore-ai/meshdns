@@ -30,6 +30,7 @@ func NewServer(s *store.Store, cfg *config.Config) *Server {
 func (s *Server) mountRoutes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
+	s.mux.HandleFunc("GET /docs", s.handleDocs)
 	s.mux.HandleFunc("GET /", s.handleLanding)
 	s.mux.HandleFunc("POST /v0/servers", s.handleRegister)
 	s.mux.HandleFunc("GET /v0/servers", s.handleListServers)

@@ -25,6 +25,9 @@ var llmsTxtContent string
 //go:embed index.html
 var landingPageHTML string
 
+//go:embed docs.html
+var docsPageHTML string
+
 // --- Request/Response types ---
 
 // RegisterRequest is the JSON body for POST /v0/servers.
@@ -238,7 +241,7 @@ func (s *Server) handleLLMsTxt(w http.ResponseWriter, r *http.Request) {
 // GET /
 func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	// Don't serve the landing page for API paths
-	if strings.HasPrefix(r.URL.Path, "/v0/") || r.URL.Path == "/health" || r.URL.Path == "/llms.txt" {
+	if strings.HasPrefix(r.URL.Path, "/v0/") || r.URL.Path == "/health" || r.URL.Path == "/llms.txt" || r.URL.Path == "/docs" {
 		writeError(w, 404, "not_found", "endpoint not found")
 		return
 	}
@@ -246,6 +249,13 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write([]byte(landingPageHTML))
+}
+
+// GET /docs
+func (s *Server) handleDocs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write([]byte(docsPageHTML))
 }
 
 // POST /v0/servers — register a server

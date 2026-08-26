@@ -759,6 +759,43 @@
         align-items: flex-start;
       }
     }
+
+    /* CLI cards */
+    .cli-card {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+    }
+    .cli-card h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: -0.03em;
+    }
+    .cli-icon {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+    .cli-code {
+      margin: 0;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #94a3b8;
+      font-size: 11px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow: auto;
+      flex: 1;
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 860px) {
+      .grid[style*="grid-template-columns: repeat(3, minmax(0, 1fr))"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -951,6 +988,44 @@
       </article>
     </section>
 
+    <!-- CLI Panel -->
+    <section style="margin-top: 20px;">
+      <div class="section-title" style="margin-bottom: 12px;">CLI Quickstart</div>
+      <div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+        <article class="panel section cli-card">
+          <div class="cli-icon">📝</div>
+          <h3>Register a server</h3>
+          <pre class="cli-code">curl -X POST https://meshdns.trucore.xyz/v0/servers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-agent",
+    "description": "My MCP server",
+    "server_url": "https://my.example.com",
+    "health_url": "https://my.example.com/health",
+    "capabilities": ["search", "query"],
+    "owner_contact": "ops@example.com"
+  }'</pre>
+        </article>
+        <article class="panel section cli-card">
+          <div class="cli-icon">🔍</div>
+          <h3>Resolve a capability</h3>
+          <pre class="cli-code">curl -s "https://meshdns.trucore.xyz/v0/resolve?capability=search" | jq .</pre>
+        </article>
+        <article class="panel section cli-card">
+          <div class="cli-icon">📋</div>
+          <h3>List &amp; filter</h3>
+          <pre class="cli-code"># All active servers
+curl -s "https://meshdns.trucore.xyz/v0/servers"
+
+# By capability
+curl -s "https://meshdns.trucore.xyz/v0/servers?capability=mcp-server"
+
+# Full export
+curl -s "https://meshdns.trucore.xyz/v0/export" | jq .</pre>
+        </article>
+      </div>
+    </section>
+
     <!-- Agent Skills -->
     <section style="margin-top: 28px;">
       <div class="section-title" style="margin-bottom: 12px;">Agent Skills</div>
@@ -1022,7 +1097,7 @@
             <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L10 6.477V16h2a1 1 0 110 2H8a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.616a1 1 0 01.894-1.79l1.599.8L10 4.323V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>
             GitHub &amp; Skills
           </a>
-          <a class="btn-secondary" href="https://www.trucore.xyz/docs/meshdns#agent-skills" target="_blank" rel="noopener noreferrer">Docs →</a>
+          <a class="btn-secondary" href="/docs">Docs →</a>
         </div>
       </div>
     </section>

@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MeshDNS — API Reference</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050a14;
+      --bg2: #0b1220;
+      --panel: rgba(11, 18, 32, 0.92);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text: #e5e7eb;
+      --muted: #9aa3b2;
+      --accent: #a78bfa;
+      --accent-2: #7dd3fc;
+      --line: rgba(255, 255, 255, 0.07);
+      --radius: 16px;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    /* Header */
+    .tc-header { position: sticky; top: 0; z-index: 50; background: linear-gradient(to bottom, rgba(5,10,20,0.80) 0%, rgba(5,10,20,0.80) 55%, rgba(5,10,20,0) 100%); }
+    .tc-header-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 24px; padding: 10px 20px; min-height: 56px; }
+    .tc-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+    .tc-logo img { width: 36px; height: 36px; border-radius: 6px; }
+    .tc-logo span { font-size: 20px; font-weight: 700; color: #fff; }
+    .tc-nav { display: flex; gap: 2px; margin-left: auto; }
+    .tc-nav a { font-size: 14px; font-weight: 500; color: #cbd5e1; text-decoration: none; padding: 6px 10px; border-radius: 6px; }
+    .tc-nav a:hover { background: rgba(255,255,255,0.05); color: #f8fafc; }
+    .tc-nav a[aria-current="true"] { color: #f8fafc; }
+    .back-link { color: var(--accent-2); text-decoration: none; font-size: 14px; margin-bottom: 24px; display: inline-block; }
+    .back-link:hover { text-decoration: underline; }
+
+    h1 { font-size: clamp(28px, 4vw, 44px); letter-spacing: -0.04em; margin: 0 0 8px; }
+    h2 { font-size: 22px; letter-spacing: -0.03em; margin: 40px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+    h3 { font-size: 16px; margin: 24px 0 8px; color: var(--accent-2); }
+    h4 { font-size: 14px; margin: 16px 0 6px; }
+    p { color: var(--muted); max-width: 72ch; }
+    a { color: var(--accent); }
+
+    .lede { font-size: 16px; max-width: 68ch; margin-bottom: 32px; }
+
+    /* Method badges */
+    .method { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-right: 8px; }
+    .method-get { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+    .method-post { background: rgba(125, 211, 252, 0.15); color: #7dd3fc; }
+    .method-put { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+    .method-delete { background: rgba(251, 113, 133, 0.15); color: #fb7185; }
+
+    /* Endpoint cards */
+    .endpoint {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+    }
+    .endpoint-header {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .endpoint-path {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .endpoint-desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 4px 0 10px;
+    }
+
+    /* Code blocks */
+    pre {
+      margin: 8px 0;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #94a3b8;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    /* Param tables */
+    .params {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 10px 0;
+    }
+    .params th {
+      text-align: left;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .params td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .params td:first-child { font-family: var(--mono); font-size: 12px; color: var(--accent-2); }
+    .params td:nth-child(2) { color: var(--muted); max-width: 40ch; }
+    .required { color: #fb7185; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+
+    /* Sections */
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .info-card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .info-card h3 { margin-top: 0; font-size: 15px; }
+
+    .toc { margin-bottom: 24px; padding: 14px 18px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); }
+    .toc h4 { margin: 0 0 8px; color: var(--text); }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { font-size: 13px; margin-bottom: 4px; }
+    .toc a { color: var(--accent-2); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    @media (max-width: 720px) {
+      .section-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="tc-header">
+    <div class="tc-header-inner">
+      <a class="tc-logo" href="https://www.trucore.xyz">
+        <img src="https://www.trucore.xyz/media/trucore-mark-128.png" alt="TruCore" width="40" height="40" />
+        <span>TruCore</span>
+      </a>
+      <nav class="tc-nav">
+        <a href="https://www.trucore.xyz/atf">ATF</a>
+        <a href="https://meshdns.trucore.xyz">MeshDNS</a>
+        <a href="https://x402fuel.trucore.xyz">x402Fuel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <a class="back-link" href="/">← Back to Dashboard</a>
+    <h1>MeshDNS API Reference</h1>
+    <p class="lede">Complete reference for the MeshDNS REST API. All endpoints return JSON. The API is versioned under <code>/v0</code>.</p>
+
+    <nav class="toc">
+      <h4>Jump to</h4>
+      <ul>
+        <li><a href="#endpoints">API Endpoints</a></li>
+        <li><a href="#health-checks">Health Checks</a></li>
+        <li><a href="#catalog">Catalog Sources</a></li>
+        <li><a href="#sdks">SDKs</a></li>
+        <li><a href="#deployment">Deployment</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+      </ul>
+    </nav>
+
+    <h2 id="endpoints">API Endpoints</h2>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/v0/resolve?capability=X</span>
+      </div>
+      <p class="endpoint-desc">Resolve servers by capability. Returns only healthy (UP) servers, ordered by uptime.</p>
+      <table class="params">
+        <tr><th>Param</th><th>Description</th></tr>
+        <tr><td>capability <span class="required">required</span></td><td>The capability slug to resolve (e.g. "sandbox", "web-search", "mcp-server")</td></tr>
+      </table>
+      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/resolve?capability=sandbox" | jq .</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/v0/servers</span>
+      </div>
+      <p class="endpoint-desc">List servers with filters and cursor-based pagination.</p>
+      <table class="params">
+        <tr><th>Param</th><th>Description</th></tr>
+        <tr><td>query</td><td>Full-text search across name and description</td></tr>
+        <tr><td>capability</td><td>Filter by capability slug</td></tr>
+        <tr><td>status</td><td>active (default), delisted, or all</td></tr>
+        <tr><td>cursor</td><td>Pagination cursor from previous response</td></tr>
+        <tr><td>limit</td><td>Max results per page (1–100, default 20)</td></tr>
+      </table>
+      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/servers?capability=mcp-server&status=active&limit=10" | jq .</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/v0/servers/{id}</span>
+      </div>
+      <p class="endpoint-desc">Get a single server by its UUID.</p>
+      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/servers/00047d75-8270-42f4-b79d-e3fc30db4510" | jq .</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-post">POST</span>
+        <span class="endpoint-path">/v0/servers</span>
+      </div>
+      <p class="endpoint-desc">Register a new MCP server. Returns a <code>server_id</code> and <code>write_key</code> — save the write key for updates.</p>
+      <pre><code>curl -X POST https://meshdns.trucore.xyz/v0/servers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-mcp-server",
+    "description": "My custom MCP server providing sandbox execution",
+    "server_url": "https://my-server.example.com",
+    "health_url": "https://my-server.example.com/health",
+    "probe_method": "GET",
+    "capabilities": ["sandbox", "code-execution"],
+    "owner_contact": "ops@example.com"
+  }'</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-put">PUT</span>
+        <span class="endpoint-path">/v0/servers/{id}</span>
+      </div>
+      <p class="endpoint-desc">Update server manifest. Requires <code>X-Write-Key</code> or <code>Authorization: Bearer</code> header. All fields are optional — send only what changed.</p>
+      <pre><code>curl -X PUT https://meshdns.trucore.xyz/v0/servers/{id} \
+  -H "Content-Type: application/json" \
+  -H "X-Write-Key: {your_write_key}" \
+  -d '{"description": "Updated description"}'</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-delete">DELETE</span>
+        <span class="endpoint-path">/v0/servers/{id}</span>
+      </div>
+      <p class="endpoint-desc">Delist (soft-delete) a server. Requires write key auth. The server is hidden from list/resolve but retained for history.</p>
+      <pre><code>curl -X DELETE https://meshdns.trucore.xyz/v0/servers/{id} \
+  -H "X-Write-Key: {your_write_key}"</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/v0/stats</span>
+      </div>
+      <p class="endpoint-desc">Registry statistics: active/total servers, up count, 24h resolutions and probe counts.</p>
+      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/stats" | jq .</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/v0/export</span>
+      </div>
+      <p class="endpoint-desc">Full registry dump — all servers with current health state. Useful for bulk analysis.</p>
+      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/export" | jq .</code></pre>
+    </div>
+
+    <h2 id="health-checks">Health Checks</h2>
+    <div class="section-grid">
+      <div class="info-card">
+        <h3>GET Probe (default)</h3>
+        <p style="color:var(--muted);font-size:13px;">MeshDNS sends a GET to <code>health_url</code> every 60s. If the server responds 2xx, it's marked UP. Non-2xx triggers auto-detect POST probe.</p>
+      </div>
+      <div class="info-card">
+        <h3>POST Probe (auto-detect)</h3>
+        <p style="color:var(--muted);font-size:13px;">If GET fails with 405 or any 4xx, MeshDNS sends a standards-compliant MCP <code>initialize</code> request. If POST succeeds, the server is marked UP and the switch is persisted.</p>
+      </div>
+      <div class="info-card">
+        <h3>Explicit POST</h3>
+        <p style="color:var(--muted);font-size:13px;">Set <code>"probe_method": "POST"</code> when registering to skip the GET attempt entirely. Required for streamable-HTTP MCP endpoints that don't answer GET.</p>
+      </div>
+      <div class="info-card">
+        <h3>Timeout &amp; Uptime</h3>
+        <p style="color:var(--muted);font-size:13px;">5s probe timeout. 30-day rolling uptime tracked per server. <code>/v0/resolve</code> never returns DOWN servers. Servers without a <code>health_url</code> are declared healthy by default.</p>
+      </div>
+    </div>
+
+    <h2 id="catalog">Catalog Sources</h2>
+    <div class="section-grid">
+      <div class="info-card">
+        <h3>MCP Official Registry</h3>
+        <p style="color:var(--muted);font-size:13px;">5,400+ servers from the official MCP registry. Probed for health with GET + POST auto-detect. Updated via catalog sync.</p>
+      </div>
+      <div class="info-card">
+        <h3>Smithery</h3>
+        <p style="color:var(--muted);font-size:13px;">110+ servers from Smithery's registry. Deployment URLs resolved via parallel detail API. Tool names pre-discovered from descriptions.</p>
+      </div>
+      <div class="info-card">
+        <h3>npm MCP Packages</h3>
+        <p style="color:var(--muted);font-size:13px;">240+ servers from npm with the <code>mcp-server</code> keyword. GitHub repo URLs extracted, declared healthy.</p>
+      </div>
+      <div class="info-card">
+        <h3>Manual Registration</h3>
+        <p style="color:var(--muted);font-size:13px;">Register your own server via <code>POST /v0/servers</code>. Immediately discoverable. Health checks start within 60s.</p>
+      </div>
+    </div>
+
+    <h2 id="sdks">SDKs</h2>
+    <div class="section-grid">
+      <div class="info-card">
+        <h3>Python</h3>
+        <pre><code>pip install meshdns-client</code></pre>
+        <pre><code>from meshdns_client import MeshDNS
+
+client = MeshDNS("https://meshdns.trucore.xyz")
+servers = client.resolve("sandbox")
+for s in servers:
+    print(s["name"], s["server_url"], s["uptime_30d"])</code></pre>
+      </div>
+      <div class="info-card">
+        <h3>TypeScript</h3>
+        <pre><code>npm i @meshdns/client</code></pre>
+        <pre><code>import { MeshDNS } from "@meshdns/client";
+
+const client = new MeshDNS("https://meshdns.trucore.xyz");
+const servers = await client.resolve("sandbox");
+console.log(servers.map(s => s.name));</code></pre>
+      </div>
+      <div class="info-card" style="grid-column: 1 / -1;">
+        <h3>Hermes Agent Skills</h3>
+        <p style="color:var(--muted);font-size:13px;">MeshDNS ships with three pre-built Hermes Agent skills for instant agent integration:</p>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0;padding-left:20px;">
+          <li><code>meshdns-quickstart</code> — one-stop guide: discover, register, lazy MCP pattern</li>
+          <li><code>meshdns</code> — full API reference, architecture, deployment, health checks</li>
+          <li><code>meshdns-lazy-mcp</code> — on-the-fly MCP discovery, 750+ servers, zero pre-config</li>
+        </ul>
+        <p style="color:var(--muted);font-size:12px;">Load with: <code>skill_view('meshdns-quickstart')</code></p>
+      </div>
+    </div>
+
+    <h2 id="deployment">Deployment</h2>
+    <div class="section-grid">
+      <div class="info-card">
+        <h3>Single Binary</h3>
+        <p style="color:var(--muted);font-size:13px;">MeshDNS ships as a single static Go binary with zero external dependencies. SQLite via pure Go — no CGo, no database server needed.</p>
+      </div>
+      <div class="info-card">
+        <h3>Docker</h3>
+        <pre><code>docker build -t meshdns .
+docker run -d -p 8080:8080 -v ./data:/data meshdns</code></pre>
+      </div>
+      <div class="info-card">
+        <h3>Configuration</h3>
+        <pre style="font-size:11px;line-height:1.7;"><code>MESHDNS_PORT=:8080
+MESHDNS_DB=/data/meshdns.db
+MESHDNS_PROBE_INTERVAL=60s
+MESHDNS_PROBE_TIMEOUT=5s
+MESHDNS_WORKERS=10</code></pre>
+      </div>
+      <div class="info-card">
+        <h3>Systemd</h3>
+        <pre style="font-size:11px;line-height:1.7;"><code>[Service]
+ExecStart=/usr/local/bin/meshdns
+WorkingDirectory=/var/lib/meshdns
+Restart=always
+RestartSec=5</code></pre>
+      </div>
+    </div>
+
+    <h2 id="architecture">Architecture</h2>
+    <div class="section-grid">
+      <div class="info-card">
+        <h3>Stack</h3>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0;padding-left:20px;">
+          <li>Go stdlib HTTP server — no frameworks</li>
+          <li>SQLite via modernc.org/sqlite — pure Go, file-based</li>
+          <li>Background health pool — configurable workers</li>
+          <li>Bearer token auth — write_key per registration</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>Data Flow</h3>
+        <ol style="color:var(--muted);font-size:13px;margin:8px 0;padding-left:20px;">
+          <li>Servers register via <code>POST /v0/servers</code></li>
+          <li>Background workers probe health URLs every 60s</li>
+          <li>Agents query <code>GET /v0/resolve?capability=X</code></li>
+          <li>Only UP servers returned, ranked by uptime</li>
+        </ol>
+      </div>
+      <div class="info-card">
+        <h3>Response Format</h3>
+        <p style="color:var(--muted);font-size:12px;">Every server object includes:</p>
+        <ul style="color:var(--muted);font-size:12px;margin:4px 0;padding-left:20px;">
+          <li><code>source</code> / <code>source_url</code> — catalog provenance (MCP Registry, Smithery, npm, TruCore)</li>
+          <li><code>auth</code> — public, auth-required, or unknown</li>
+          <li><code>tool_count</code> / <code>tool_names</code> — tools pre-discovered from descriptions</li>
+          <li><code>curl_snippet</code> — ready-to-use lazy MCP call command</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>llms.txt</h3>
+        <p style="color:var(--muted);font-size:13px;">LLM-readable API reference at <a href="/llms.txt"><code>/llms.txt</code></a>. Targeted at AI agents and coding assistants for programmatic discovery.</p>
+      </div>
+    </div>
+
+    <p style="margin-top: 40px; color: var(--muted); font-size: 12px;">
+      Built by <a href="https://github.com/trucore-ai">TruCore Ventures</a> ·
+      <a href="https://github.com/trucore-ai/meshdns">GitHub</a> ·
+      <a href="https://github.com/trucore-ai/meshdns/blob/main/LICENSE">MIT License</a>
+    </p>
+  </main>
+</body>
+</html>
