@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -209,100 +208,9 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the landing page with live stats injected
-	stats, err := s.Store.GetStats()
-	if err != nil {
-		stats = &store.Stats{}
-	}
-
-	servers, _, _ := s.Store.ListServers("", "", "active", "", 20)
-
-	// Build server cards HTML
-	var serverCards strings.Builder
-	for _, srv := range servers {
-		apiSrv := storeServerWithStateToAPI(srv)
-		status := "DOWN"
-		statusClass := "down"
-		if apiSrv.Up == 1 {
-			status = "UP"
-			statusClass = "up"
-		}
-
-		// Capability chips
-		var capChips strings.Builder
-		for _, cap := range apiSrv.Capabilities {
-			if capChips.Len() > 0 {
-				capChips.WriteString(" ")
-			}
-			capChips.WriteString(fmt.Sprintf(`<span class="chip" data-capability="%s">%s</span>`, cap, cap))
-		}
-
-		// Source badge
-		sourceBadge := ""
-		if apiSrv.Source != "" {
-			sourceBadge = fmt.Sprintf(`<span class="source-badge">%s</span>`, apiSrv.Source)
-		}
-
-		// Tool count badge
-		toolBadge := ""
-		if apiSrv.ToolCount > 0 {
-			toolBadge = fmt.Sprintf(`<span class="tool-badge" title="%d tools">%d tools</span>`, apiSrv.ToolCount, apiSrv.ToolCount)
-		}
-
-		// Probe method indicator
-		probeLabel := ""
-		if apiSrv.ProbeMethod == "POST" {
-			probeLabel = `<span class="badge" style="color:#67e8f9;background:rgba(103,232,249,0.08);border-color:rgba(103,232,249,0.2);">POST probe</span>`
-		}
-
-		// Uptime percentage
-		uptimePct := fmt.Sprintf("%.1f%%", apiSrv.Uptime30d*100)
-
-		serverCards.WriteString(fmt.Sprintf(`
-		<tr>
-			<td>
-				<div class="name">%s</div>
-				<div class="meta-row">
-					%s %s %s
-				</div>
-			</td>
-			<td><div class="description">%s</div></td>
-			<td><div class="capabilities">%s</div></td>
-			<td><span class="badge %s">%s</span></td>
-			<td class="right">
-				<div>%s</div>
-				<button class="copy-curl" onclick="copyCurl('%s')" title="Copy curl">📋 curl</button>
-			</td>
-		</tr>`,
-			apiSrv.Name,
-			sourceBadge, toolBadge, probeLabel,
-			apiSrv.Description,
-			capChips.String(),
-			statusClass, status,
-			uptimePct,
-			apiSrv.Name,
-		))
-	}
-
-	// Source breakdown for filter bar
-	var sourceChips strings.Builder
-	for src := range stats.SourceBreakdown {
-		sourceChips.WriteString(fmt.Sprintf(`<span class="filter-chip" data-source="%s">%s<span class="count">%d</span></span>`, src, src, stats.SourceBreakdown[src]))
-	}
-
-	html := landingPageHTML
-	html = strings.Replace(html, "{{SERVERS_ACTIVE}}", fmt.Sprintf("%d", stats.ServersActive), 1)
-	html = strings.Replace(html, "{{SERVERS_TOTAL}}", fmt.Sprintf("%d", stats.ServersTotal), 1)
-	html = strings.Replace(html, "{{RESOLUTIONS_24H}}", fmt.Sprintf("%d", stats.Resolutions24h), 1)
-	html = strings.Replace(html, "{{UP_COUNT}}", fmt.Sprintf("%d", stats.UpCount), 1)
-	html = strings.Replace(html, "{{TOOL_COUNT_TOTAL}}", fmt.Sprintf("%d", stats.ToolCountTotal), 1)
-	html = strings.Replace(html, "{{PROBES_24H}}", fmt.Sprintf("%d", stats.Probes24h), 1)
-	html = strings.Replace(html, "{{SERVER_ROWS}}", serverCards.String(), 1)
-	html = strings.Replace(html, "{{SOURCE_CHIPS}}", sourceChips.String(), 1)
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(200)
-	w.Write([]byte(html))
+	w.Write([]byte(landingPageHTML))
 }
 
 // POST /v0/servers — register a server
