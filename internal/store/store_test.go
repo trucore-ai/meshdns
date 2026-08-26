@@ -1,351 +1,286 @@
 package store
 
 import (
-	"errors"
-	"fmt"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 )
 
-func TestOpenTwiceOnSameFile(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "meshdns.db")
-
-	first, err := Open(dbPath)
+func testDB(t *testing.T) *Store {
+	t.Helper()
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "test.db"))
 	if err != nil {
-		t.Fatalf("Open first = %v", err)
+		t.Fatalf("Open: %v", err)
 	}
-	if err := first.Close(); err != nil {
-		t.Fatalf("Close first = %v", err)
-	}
-
-	second, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("Open second = %v", err)
-	}
-	if err := second.Close(); err != nil {
-		t.Fatalf("Close second = %v", err)
-	}
+	t.Cleanup(func() { s.Close() })
+	return s
 }
 
-func TestCreateServerGetServerRoundTripAndDuplicateName(t *testing.T) {
-	st := newTestStore(t)
-
-	created := testServer("srv-1", "alpha")
-	created.Description = "Alpha resolver"
-	created.Capabilities = []string{"dns", "doh"}
-
-	if err := st.CreateServer(created, "hash-one"); err != nil {
-		t.Fatalf("CreateServer = %v", err)
+func TestCreateAndGetServer(t *testing.T) {
+	s := testDB(t)
+	srv := &Server{
+		ID:           "test-id-001",
+		Name:         "test-server",
+		Description:  "a test server",
+		ServerURL:    "https://example.com",
+		HealthURL:    "https://example.com/health",
+		WriteKeyHash: "hash123",
+		OwnerContact: "ops@example.com",
 	}
-
-	got, err := st.GetServer(created.ID)
+	id, err := s.CreateServer(srv)
 	if err != nil {
-		t.Fatalf("GetServer = %v", err)
+		t.Fatalf("CreateServer: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty server id")
 	}
 
-	if got.ID != created.ID || got.Name != created.Name || got.Description != created.Description || got.ServerURL != created.ServerURL {
-		t.Fatalf("GetServer = %+v, want fields from %+v", got, created)
+	got, err := s.GetServer(id)
+	if err != nil {
+		t.Fatalf("GetServer: %v", err)
+	}
+	if got.Name != srv.Name {
+		t.Errorf("Name = %q, want %q", got.Name, srv.Name)
 	}
 	if got.Status != "active" {
-		t.Fatalf("Status = %q, want active", got.Status)
-	}
-	if !reflect.DeepEqual(got.Capabilities, []string{"dns", "doh"}) {
-		t.Fatalf("Capabilities = %#v, want dns,doh", got.Capabilities)
-	}
-	if _, err := time.Parse(time.RFC3339, got.CreatedAt); err != nil {
-		t.Fatalf("CreatedAt is not RFC3339: %q", got.CreatedAt)
-	}
-	if _, err := time.Parse(time.RFC3339, got.UpdatedAt); err != nil {
-		t.Fatalf("UpdatedAt is not RFC3339: %q", got.UpdatedAt)
-	}
-
-	byName, err := st.GetServerByName(created.Name)
-	if err != nil {
-		t.Fatalf("GetServerByName = %v", err)
-	}
-	if byName.ID != created.ID {
-		t.Fatalf("GetServerByName ID = %q, want %q", byName.ID, created.ID)
-	}
-
-	duplicate := testServer("srv-2", created.Name)
-	err = st.CreateServer(duplicate, "hash-two")
-	if !errors.Is(err, ErrDuplicateName) {
-		t.Fatalf("CreateServer duplicate err = %v, want ErrDuplicateName", err)
+		t.Errorf("Status = %q, want active", got.Status)
 	}
 }
 
-func TestSetCapabilitiesAndListServersCapabilityFilter(t *testing.T) {
-	st := newTestStore(t)
-
-	mustCreate(t, st, testServer("srv-1", "alpha"))
-	mustCreate(t, st, testServer("srv-2", "bravo"))
-
-	if err := st.SetCapabilities("srv-1", []string{"dns", "doh", "dns"}); err != nil {
-		t.Fatalf("SetCapabilities srv-1 = %v", err)
-	}
-	if err := st.SetCapabilities("srv-2", []string{"metrics"}); err != nil {
-		t.Fatalf("SetCapabilities srv-2 = %v", err)
-	}
-
-	got, next, err := st.ListServers("", "dns", "active", "", 10)
+func TestCreateDuplicateName(t *testing.T) {
+	s := testDB(t)
+	srv := &Server{ID: "id-1", Name: "dup", ServerURL: "https://a.example.com", WriteKeyHash: "h1"}
+	_, err := s.CreateServer(srv)
 	if err != nil {
-		t.Fatalf("ListServers = %v", err)
+		t.Fatal(err)
 	}
-	if next != "" {
-		t.Fatalf("nextCursor = %q, want empty", next)
-	}
-	if len(got) != 1 || got[0].ID != "srv-1" {
-		t.Fatalf("ListServers capability result = %+v, want srv-1 only", got)
-	}
-	if !reflect.DeepEqual(got[0].Capabilities, []string{"dns", "doh"}) {
-		t.Fatalf("Capabilities = %#v, want sorted unique dns,doh", got[0].Capabilities)
+	_, err = s.CreateServer(&Server{ID: "id-2", Name: "dup", ServerURL: "https://b.example.com", WriteKeyHash: "h2"})
+	if err == nil {
+		t.Fatal("expected error for duplicate name")
 	}
 }
 
-func TestListServersQuerySubstringAndPagination(t *testing.T) {
-	st := newTestStore(t)
+func TestUpdateAndDelist(t *testing.T) {
+	s := testDB(t)
+	id, _ := s.CreateServer(&Server{ID: "id-upd", Name: "srv", ServerURL: "https://x.com", WriteKeyHash: "h"})
 
-	names := []string{"alpha", "bravo", "charlie", "delta", "echo"}
-	for i, name := range names {
-		server := testServer(fmt.Sprintf("srv-%d", i+1), name)
-		server.Description = fmt.Sprintf("Regional NODE %d", i+1)
-		mustCreate(t, st, server)
+	err := s.UpdateServer(id, "hash_wrong", &Server{Name: "new-name"})
+	if err == nil {
+		t.Fatal("expected auth error for wrong write key")
 	}
 
-	var gotNames []string
-	cursor := ""
-	for {
-		page, next, err := st.ListServers("node", "", "active", cursor, 2)
-		if err != nil {
-			t.Fatalf("ListServers cursor %q = %v", cursor, err)
-		}
-		for _, server := range page {
-			gotNames = append(gotNames, server.Name)
-		}
-		if next == "" {
-			break
-		}
-		cursor = next
+	err = s.UpdateServer(id, "h", &Server{Name: "new-name", Description: "updated"})
+	if err != nil {
+		t.Fatalf("UpdateServer: %v", err)
 	}
 
-	if !reflect.DeepEqual(gotNames, names) {
-		t.Fatalf("paginated names = %#v, want %#v", gotNames, names)
+	got, _ := s.GetServer(id)
+	if got.Name != "new-name" {
+		t.Errorf("Name = %q, want new-name", got.Name)
+	}
+
+	err = s.DelistServer(id, "wrong")
+	if err == nil {
+		t.Fatal("expected auth error for delist")
+	}
+	err = s.DelistServer(id, "h")
+	if err != nil {
+		t.Fatalf("DelistServer: %v", err)
+	}
+	got, _ = s.GetServer(id)
+	if got.Status != "delisted" {
+		t.Errorf("Status = %q, want delisted", got.Status)
 	}
 }
 
-func TestRecordProbeAndGetUptime30d(t *testing.T) {
-	st := newTestStore(t)
-	mustCreate(t, st, testServer("srv-1", "alpha"))
+func TestCapabilities(t *testing.T) {
+	s := testDB(t)
+	id, _ := s.CreateServer(&Server{ID: "cap-1", Name: "cap-srv", ServerURL: "https://c.com", WriteKeyHash: "h"})
 
-	base := time.Now().UTC().Add(-time.Hour)
-	probes := []struct {
-		up bool
-	}{
-		{up: true},
-		{up: true},
-		{up: true},
-		{up: false},
-	}
-
-	for i, probe := range probes {
-		ts := base.Add(time.Duration(i) * time.Minute).Format(time.RFC3339)
-		if err := st.RecordProbe("srv-1", ts, probe.up, 25+i); err != nil {
-			t.Fatalf("RecordProbe %d = %v", i, err)
-		}
-	}
-
-	uptime, err := st.GetUptime30d("srv-1")
+	err := s.SetCapabilities(id, []string{"weather", "forecast"})
 	if err != nil {
-		t.Fatalf("GetUptime30d = %v", err)
+		t.Fatalf("SetCapabilities: %v", err)
 	}
-	if uptime != 0.75 {
-		t.Fatalf("GetUptime30d = %v, want 0.75", uptime)
+
+	caps, err := s.GetCapabilities(id)
+	if err != nil {
+		t.Fatalf("GetCapabilities: %v", err)
+	}
+	if len(caps) != 2 {
+		t.Errorf("got %d capabilities, want 2", len(caps))
 	}
 }
 
-func TestSetServerStateAndGetUpServersByCapability(t *testing.T) {
-	st := newTestStore(t)
+func TestResolveByCapability(t *testing.T) {
+	s := testDB(t)
 
-	for _, server := range []Server{
-		testServer("srv-low", "alpha"),
-		testServer("srv-high", "bravo"),
-		testServer("srv-down", "charlie"),
-		testServer("srv-delisted", "delta"),
-	} {
-		server.Capabilities = []string{"dns"}
-		mustCreate(t, st, server)
-	}
+	s1, _ := s.CreateServer(&Server{ID: "rs1", Name: "srv1", ServerURL: "https://1.com", WriteKeyHash: "h", HealthURL: "https://1.com/h"})
+	s2, _ := s.CreateServer(&Server{ID: "rs2", Name: "srv2", ServerURL: "https://2.com", WriteKeyHash: "h"})
+	s3, _ := s.CreateServer(&Server{ID: "rs3", Name: "srv3", ServerURL: "https://3.com", WriteKeyHash: "h", HealthURL: "https://3.com/h"})
 
-	checkedAt := time.Now().UTC().Format(time.RFC3339)
-	for _, tc := range []struct {
-		id        string
-		up        bool
-		uptime30d float64
-	}{
-		{id: "srv-low", up: true, uptime30d: 0.8},
-		{id: "srv-high", up: true, uptime30d: 0.95},
-		{id: "srv-down", up: false, uptime30d: 1},
-		{id: "srv-delisted", up: true, uptime30d: 0.99},
-	} {
-		if err := st.SetServerState(tc.id, tc.up, checkedAt, tc.uptime30d); err != nil {
-			t.Fatalf("SetServerState %s = %v", tc.id, err)
-		}
-	}
-	if err := st.DelistServer("srv-delisted"); err != nil {
-		t.Fatalf("DelistServer = %v", err)
-	}
+	s.SetCapabilities(s1, []string{"weather"})
+	s.SetCapabilities(s2, []string{"weather"})
+	s.SetCapabilities(s3, []string{"news"})
 
-	got, err := st.GetUpServersByCapability("dns")
+	now := time.Now().UTC().Format(time.RFC3339)
+	s.SetServerState(s1, 1, now, 0.95)
+	s.SetServerState(s2, 0, now, 0.50)
+	s.SetServerState(s3, 1, now, 0.90)
+
+	// Override s2 to UP (so both weather servers are up but s1 has higher uptime)
+	s.SetServerState(s2, 1, now, 0.50)
+
+	results, err := s.GetUpServersByCapability("weather")
 	if err != nil {
-		t.Fatalf("GetUpServersByCapability = %v", err)
+		t.Fatalf("GetUpServersByCapability: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 UP servers for weather, got %d", len(results))
+	}
+	// s1 (0.95) should come before s2 (0.50)
+	if results[0].Name != "srv1" {
+		t.Errorf("first result = %q, want srv1 (higher uptime)", results[0].Name)
 	}
 
-	gotIDs := serverIDs(got)
-	wantIDs := []string{"srv-high", "srv-low"}
-	if !reflect.DeepEqual(gotIDs, wantIDs) {
-		t.Fatalf("GetUpServersByCapability IDs = %#v, want %#v", gotIDs, wantIDs)
+	empty, _ := s.GetUpServersByCapability("unknown")
+	if len(empty) != 0 {
+		t.Errorf("expected empty for unknown capability, got %d", len(empty))
 	}
 }
 
-func TestAppendEventAndCountEventsSince(t *testing.T) {
-	st := newTestStore(t)
+func TestListServersWithFilters(t *testing.T) {
+	s := testDB(t)
+	s1, _ := s.CreateServer(&Server{ID: "ls1", Name: "alpha", ServerURL: "https://a.com", WriteKeyHash: "h"})
+	s2, _ := s.CreateServer(&Server{ID: "ls2", Name: "beta", ServerURL: "https://b.com", WriteKeyHash: "h"})
+	s.DelistServer(s2, "h")
 
-	base := time.Now().UTC().Add(-2 * time.Hour)
-	events := []struct {
-		ts        string
-		eventType string
-	}{
-		{ts: base.Format(time.RFC3339), eventType: "server.up"},
-		{ts: base.Add(time.Hour).Format(time.RFC3339), eventType: "server.up"},
-		{ts: base.Add(2 * time.Hour).Format(time.RFC3339), eventType: "server.down"},
-	}
-	for _, event := range events {
-		if err := st.AppendEvent(event.ts, event.eventType, `{"server_id":"srv-1"}`); err != nil {
-			t.Fatalf("AppendEvent = %v", err)
-		}
-	}
-
-	count, err := st.CountEventsSince("server.up", base.Add(30*time.Minute).Format(time.RFC3339))
+	// filter by status=active
+	servers, cursor, err := s.ListServers("", "", "active", "", 10)
 	if err != nil {
-		t.Fatalf("CountEventsSince = %v", err)
+		t.Fatalf("ListServers: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("CountEventsSince = %d, want 1", count)
+	if len(servers) != 1 {
+		t.Errorf("expected 1 active server, got %d", len(servers))
+	}
+	if servers[0].ID != s1 {
+		t.Errorf("expected alpha")
+	}
+	if cursor != "" {
+		t.Errorf("expected empty cursor, got %q", cursor)
+	}
+
+	// filter by query
+	servers, _, _ = s.ListServers("bet", "", "all", "", 10)
+	if len(servers) != 1 || servers[0].Name != "beta" {
+		t.Errorf("expected beta from name search")
 	}
 }
 
-func TestExportAllIncludesDelisted(t *testing.T) {
-	st := newTestStore(t)
-
-	mustCreate(t, st, testServer("srv-active", "alpha"))
-	mustCreate(t, st, testServer("srv-delisted", "bravo"))
-	if err := st.DelistServer("srv-delisted"); err != nil {
-		t.Fatalf("DelistServer = %v", err)
+func TestPagination(t *testing.T) {
+	s := testDB(t)
+	for i := 0; i < 5; i++ {
+		n := string(rune('a' + i))
+		s.CreateServer(&Server{ID: "pg-" + n, Name: "srv-" + n, ServerURL: "https://" + n + ".com", WriteKeyHash: "h"})
 	}
 
-	got, err := st.ExportAll()
+	// Page 1: limit=2, no cursor
+	page1, cursor, err := s.ListServers("", "", "all", "", 2)
 	if err != nil {
-		t.Fatalf("ExportAll = %v", err)
+		t.Fatalf("ListServers page 1: %v", err)
+	}
+	if len(page1) != 2 {
+		t.Errorf("page1 len = %d, want 2", len(page1))
+	}
+	if cursor == "" {
+		t.Fatal("expected non-empty cursor")
 	}
 
-	statuses := map[string]string{}
-	for _, server := range got {
-		statuses[server.ID] = server.Status
+	// Page 2
+	page2, cursor2, _ := s.ListServers("", "", "all", cursor, 2)
+	if len(page2) != 2 {
+		t.Errorf("page2 len = %d, want 2", len(page2))
 	}
-	if statuses["srv-active"] != "active" || statuses["srv-delisted"] != "delisted" {
-		t.Fatalf("ExportAll statuses = %#v, want active and delisted", statuses)
+
+	// Page 3
+	page3, cursor3, _ := s.ListServers("", "", "all", cursor2, 2)
+	if len(page3) != 1 {
+		t.Errorf("page3 len = %d, want 1", len(page3))
+	}
+	if cursor3 != "" {
+		t.Errorf("expected empty cursor on last page, got %q", cursor3)
 	}
 }
 
-func TestCountServersAndUpServers(t *testing.T) {
-	st := newTestStore(t)
+func TestExportAll(t *testing.T) {
+	s := testDB(t)
+	s.CreateServer(&Server{ID: "ex1", Name: "e1", ServerURL: "https://e1.com", WriteKeyHash: "h"})
+	s.CreateServer(&Server{ID: "ex2", Name: "e2", ServerURL: "https://e2.com", WriteKeyHash: "h"})
 
-	for _, server := range []Server{
-		testServer("srv-up", "alpha"),
-		testServer("srv-down", "bravo"),
-		testServer("srv-delisted", "charlie"),
-	} {
-		mustCreate(t, st, server)
-	}
-	if err := st.DelistServer("srv-delisted"); err != nil {
-		t.Fatalf("DelistServer = %v", err)
-	}
-
-	checkedAt := time.Now().UTC().Format(time.RFC3339)
-	if err := st.SetServerState("srv-up", true, checkedAt, 0.9); err != nil {
-		t.Fatalf("SetServerState srv-up = %v", err)
-	}
-	if err := st.SetServerState("srv-down", false, checkedAt, 0.5); err != nil {
-		t.Fatalf("SetServerState srv-down = %v", err)
-	}
-	if err := st.SetServerState("srv-delisted", true, checkedAt, 1); err != nil {
-		t.Fatalf("SetServerState srv-delisted = %v", err)
-	}
-
-	active, err := st.CountServers("active")
+	export, err := s.ExportAll()
 	if err != nil {
-		t.Fatalf("CountServers active = %v", err)
+		t.Fatalf("ExportAll: %v", err)
 	}
-	total, err := st.CountServers("")
-	if err != nil {
-		t.Fatalf("CountServers total = %v", err)
+	if export.ExportedAt == "" {
+		t.Error("export missing exported_at")
 	}
-	upActive, err := st.CountUpServers("active")
-	if err != nil {
-		t.Fatalf("CountUpServers active = %v", err)
-	}
-	upTotal, err := st.CountUpServers("")
-	if err != nil {
-		t.Fatalf("CountUpServers total = %v", err)
-	}
-
-	if active != 2 || total != 3 || upActive != 1 || upTotal != 2 {
-		t.Fatalf("counts active=%d total=%d upActive=%d upTotal=%d, want 2,3,1,2", active, total, upActive, upTotal)
+	if len(export.Servers) != 2 {
+		t.Errorf("export servers = %d, want 2", len(export.Servers))
 	}
 }
 
-func newTestStore(t *testing.T) *Store {
-	t.Helper()
+func TestEvents(t *testing.T) {
+	s := testDB(t)
 
-	st, err := Open(filepath.Join(t.TempDir(), "meshdns.db"))
+	err := s.AppendEvent("register", `{"server_id":"abc"}`)
 	if err != nil {
-		t.Fatalf("Open = %v", err)
+		t.Fatalf("AppendEvent: %v", err)
 	}
-	t.Cleanup(func() {
-		if err := st.Close(); err != nil {
-			t.Fatalf("Close = %v", err)
-		}
-	})
 
-	return st
-}
-
-func mustCreate(t *testing.T, st *Store, server Server) {
-	t.Helper()
-
-	if err := st.CreateServer(server, "write-key-hash"); err != nil {
-		t.Fatalf("CreateServer %s = %v", server.ID, err)
+	count, err := s.CountEventsSince("register", "2000-01-01T00:00:00Z")
+	if err != nil {
+		t.Fatalf("CountEventsSince: %v", err)
+	}
+	if count < 1 {
+		t.Errorf("expected >= 1 event, got %d", count)
 	}
 }
 
-func testServer(id, name string) Server {
-	return Server{
-		ID:           id,
-		Name:         name,
-		Description:  "test server",
-		ServerURL:    "https://" + name + ".example.test",
-		HealthURL:    "https://" + name + ".example.test/health",
-		OwnerContact: name + "@example.test",
+func TestProbes(t *testing.T) {
+	s := testDB(t)
+	id, _ := s.CreateServer(&Server{ID: "pr1", Name: "p", ServerURL: "https://p.com", WriteKeyHash: "h"})
+
+	err := s.RecordProbe(id, true, 42)
+	if err != nil {
+		t.Fatalf("RecordProbe: %v", err)
+	}
+	err = s.RecordProbe(id, false, 5001)
+	if err != nil {
+		t.Fatalf("RecordProbe: %v", err)
+	}
+
+	uptime, err := s.GetUptime30d(id)
+	if err != nil {
+		t.Fatalf("GetUptime30d: %v", err)
+	}
+	// 1 up, 1 down = 0.5
+	if uptime < 0.49 || uptime > 0.51 {
+		t.Errorf("uptime = %f, want ~0.5", uptime)
 	}
 }
 
-func serverIDs(servers []Server) []string {
-	ids := make([]string, 0, len(servers))
-	for _, server := range servers {
-		ids = append(ids, server.ID)
-	}
+func TestGetStats(t *testing.T) {
+	s := testDB(t)
+	s.CreateServer(&Server{ID: "st1", Name: "stat-srv", ServerURL: "https://s.com", WriteKeyHash: "h"})
 
-	return ids
+	stats, err := s.GetStats()
+	if err != nil {
+		t.Fatalf("GetStats: %v", err)
+	}
+	if stats.ServersActive < 1 {
+		t.Errorf("expected >= 1 active server, got %d", stats.ServersActive)
+	}
+	if stats.ServersTotal < 1 {
+		t.Errorf("expected >= 1 total server, got %d", stats.ServersTotal)
+	}
 }

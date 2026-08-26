@@ -6,14 +6,7 @@ import (
 	"time"
 )
 
-const (
-	defaultPort          = ":8080"
-	defaultDBPath        = "meshdns.db"
-	defaultProbeInterval = 60 * time.Second
-	defaultProbeTimeout  = 5 * time.Second
-	defaultWorkers       = 8
-)
-
+// Config holds all runtime configuration sourced from environment variables.
 type Config struct {
 	Port          string
 	DBPath        string
@@ -22,55 +15,40 @@ type Config struct {
 	Workers       int
 }
 
-func Load() Config {
-	port := envString("PORT", defaultPort)
-	// Render sets PORT without colon; MESHDNS_PORT with colon takes precedence
-	if mp := os.Getenv("MESHDNS_PORT"); mp != "" {
-		port = mp
-	} else if port != "" && port[0] != ':' {
-		port = ":" + port
-	}
-	return Config{
-		Port:          port,
-		DBPath:        envString("MESHDNS_DB", defaultDBPath),
-		ProbeInterval: envDuration("MESHDNS_PROBE_INTERVAL", defaultProbeInterval),
-		ProbeTimeout:  envDuration("MESHDNS_PROBE_TIMEOUT", defaultProbeTimeout),
-		Workers:       envInt("MESHDNS_WORKERS", defaultWorkers),
+// Load reads configuration from environment variables with sensible defaults.
+func Load() *Config {
+	return &Config{
+		Port:          envStr("MESHDNS_PORT", ":8080"),
+		DBPath:        envStr("MESHDNS_DB", "meshdns.db"),
+		ProbeInterval: envDuration("MESHDNS_PROBE_INTERVAL", 60*time.Second),
+		ProbeTimeout:  envDuration("MESHDNS_PROBE_TIMEOUT", 5*time.Second),
+		Workers:       envInt("MESHDNS_WORKERS", 8),
 	}
 }
 
-func envString(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func envStr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-
 	return fallback
 }
 
 func envDuration(key string, fallback time.Duration) time.Duration {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+	if v := os.Getenv(key); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			return d
+		}
 	}
-
-	parsed, err := time.ParseDuration(value)
-	if err != nil {
-		return fallback
-	}
-
-	return parsed
+	return fallback
 }
 
 func envInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+	if v := os.Getenv(key); v != "" {
+		n, err := strconv.Atoi(v)
+		if err == nil && n > 0 {
+			return n
+		}
 	}
-
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-
-	return parsed
+	return fallback
 }

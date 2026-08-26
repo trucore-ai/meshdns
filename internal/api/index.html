@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MeshDNS — Service Registry for AI Agents</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #050a14;
+    --bg2: #0b1220;
+    --panel: rgba(11, 18, 32, 0.92);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #e5e7eb;
+    --muted: #9aa3b2;
+    --accent: #a78bfa;
+    --accent-2: #7dd3fc;
+    --good: #34d399;
+    --bad: #fb7185;
+    --line: rgba(255, 255, 255, 0.07);
+    --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    --radius: 20px;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: radial-gradient(circle at top left, rgba(167,139,250,0.14), transparent 28%),
+                radial-gradient(circle at 80% 10%, rgba(52,157,232,0.12), transparent 30%),
+                linear-gradient(180deg, var(--bg), var(--bg2));
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 40px; }
+
+  header.hero { margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+  .hero-copy h1 { font-size: clamp(28px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.04em; margin: 0; }
+  .hero-copy .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; margin-bottom: 4px; }
+  .hero-copy .lede { color: var(--muted); font-size: 15px; max-width: 78ch; margin-top: 4px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .stat-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); backdrop-filter: blur(10px); }
+  .stat-card label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; }
+  .stat-card .value { font-family: var(--mono); font-size: clamp(24px, 3vw, 38px); font-weight: 700; letter-spacing: -0.06em; margin-top: 2px; }
+  .stat-card .hint { color: var(--muted); font-size: 12px; }
+
+  .grid-main { display: grid; grid-template-columns: 1.4fr 0.9fr; gap: 16px; align-items: start; margin-top: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); box-shadow: var(--shadow); backdrop-filter: blur(10px); padding: 18px; }
+  .section-title { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; margin-bottom: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  thead th { color: var(--muted); text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
+  tbody td { padding: 14px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .name { font-weight: 700; letter-spacing: -0.03em; }
+  .description { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+  .right { text-align: right; }
+
+  .chip, .badge { display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); padding: 4px 9px; font-size: 11px; white-space: nowrap; }
+  .chip { color: #cbd5e1; background: rgba(255,255,255,0.04); margin: 1px; }
+  .badge.up { color: #bbf7d0; background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.24); }
+  .badge.down { color: #fecdd3; background: rgba(251,113,133,0.11); border-color: rgba(251,113,133,0.24); }
+  .capabilities { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .meta-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .source-badge { font-size: 10px; font-weight: 500; color: #c4b5fd; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.18); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+  .tool-badge { font-size: 10px; font-weight: 500; color: #67e8f9; background: rgba(103,232,249,0.08); border: 1px solid rgba(103,232,249,0.2); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .filter-chip { display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); padding: 6px 12px; font-size: 12px; white-space: nowrap; cursor: default; color: var(--muted); background: rgba(255,255,255,0.03); }
+  .filter-chip .count { margin-left: 5px; font-size: 10px; opacity: 0.55; }
+
+  .copy-curl { background: none; border: 1px solid rgba(255,255,255,0.08); color: var(--muted); font-size: 12px; padding: 3px 6px; border-radius: 6px; cursor: pointer; margin-top: 4px; display: inline-flex; align-items: center; }
+  .copy-curl:hover { background: rgba(255,255,255,0.05); color: var(--text); border-color: rgba(255,255,255,0.14); }
+
+  input, button { font-family: var(--mono); font-size: inherit; }
+  input { flex: 1; min-width: 0; background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--panel-border); border-radius: 14px; padding: 12px 14px; outline: none; }
+  input:focus { border-color: rgba(125,211,252,0.45); box-shadow: 0 0 0 3px rgba(125,211,252,0.08); }
+  button { border: 1px solid rgba(125,211,252,0.28); background: linear-gradient(180deg, rgba(125,211,252,0.18), rgba(125,211,252,0.08)); color: var(--text); border-radius: 14px; padding: 12px 16px; cursor: pointer; }
+  button:hover { border-color: rgba(125,211,252,0.45); }
+  pre { margin: 0; padding: 14px; min-height: 220px; overflow: auto; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); color: #d1d5db; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .resolve-box { display: grid; gap: 12px; }
+  .resolve-row { display: flex; gap: 10px; }
+
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .section-head h2 { margin: 0; font-size: 16px; letter-spacing: -0.03em; }
+
+  .footer { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-top: 18px; padding: 18px 4px 0; color: var(--muted); font-size: 12px; }
+  .footer ul { list-style: none; padding: 0; display: grid; gap: 4px; }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 980px) {
+    .grid-main { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 18px 14px 28px; }
+    .resolve-row { flex-direction: column; }
+    thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tbody tr { padding: 12px 0; }
+    tbody td { padding: 8px 0; }
+    .right { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">MeshDNS Registry</div>
+      <h1>The service registry for AI agents</h1>
+      <p class="lede">Never hardcode an MCP server again. Register capabilities, resolve by feature, automatic health checks.</p>
+    </div>
+  </header>
+
+  <section class="stats">
+    <article class="stat-card"><label>Active servers</label><div class="value">{{SERVERS_ACTIVE}}</div><div class="hint">Registered & active.</div></article>
+    <article class="stat-card"><label>Up now</label><div class="value">{{UP_COUNT}}</div><div class="hint">Currently healthy.</div></article>
+    <article class="stat-card"><label>Resolutions (24h)</label><div class="value">{{RESOLUTIONS_24H}}</div><div class="hint">Capability lookups.</div></article>
+    <article class="stat-card"><label>Probes (24h)</label><div class="value">{{PROBES_24H}}</div><div class="hint">Health checks run.</div></article>
+    <article class="stat-card"><label>Tool count</label><div class="value">{{TOOL_COUNT_TOTAL}}</div><div class="hint">Total tools exposed.</div></article>
+    <article class="stat-card"><label>Total registered</label><div class="value">{{SERVERS_TOTAL}}</div><div class="hint">Including delisted.</div></article>
+  </section>
+
+  <section class="grid-main">
+    <article class="panel">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Registry</div>
+          <h2>Top servers</h2>
+        </div>
+      </div>
+      <div class="filter-bar">{{SOURCE_CHIPS}}</div>
+      <table aria-label="Servers">
+        <thead><tr><th style="width:18%">Name</th><th style="width:28%">Description</th><th style="width:22%">Capabilities</th><th style="width:10%">Status</th><th class="right" style="width:22%">Uptime / Copy</th></tr></thead>
+        <tbody>{{SERVER_ROWS}}</tbody>
+      </table>
+    </article>
+
+    <article class="panel">
+      <div class="section-head">
+        <div><div class="section-title">Demo</div><h2>Resolve capability</h2></div>
+      </div>
+      <div class="resolve-box">
+        <div class="resolve-row">
+          <input id="capability-input" type="text" placeholder="e.g. sandbox" autocomplete="off" spellcheck="false" />
+          <button id="resolve-button" type="button">Resolve</button>
+        </div>
+        <pre id="resolve-output">Enter a capability to see the best matching MCP servers.</pre>
+      </div>
+    </article>
+  </section>
+
+  <div class="footer">
+    <div>
+      <div class="section-title">API Endpoints</div>
+      <ul>
+        <li>GET /v0/resolve</li>
+        <li>GET /v0/servers</li>
+        <li>POST /v0/servers</li>
+        <li>PUT /v0/servers/{id}</li>
+        <li>GET /v0/export</li>
+        <li>GET /v0/stats</li>
+      </ul>
+    </div>
+    <div>
+      <div class="section-title">Links</div>
+      <ul>
+        <li><a href="/llms.txt">llms.txt</a></li>
+        <li><a href="/v0/export">Full Export</a></li>
+        <li><a href="/v0/stats">JSON Stats</a></li>
+        <li><a href="https://github.com/trucore-ai/meshdns">GitHub</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+<script>
+// Copy curl snippet
+function copyCurl(name) {
+  var url = window.location.origin + '/v0/servers';
+  navigator.clipboard.writeText('curl -s ' + url + '?query=' + encodeURIComponent(name)).then(function() {
+    console.log('copied');
+  });
+}
+
+// Live resolve demo
+document.getElementById('resolve-button').addEventListener('click', function() {
+  var input = document.getElementById('capability-input');
+  var output = document.getElementById('resolve-output');
+  var cap = input.value.trim();
+  if (!cap) { output.textContent = 'Enter a capability first.'; return; }
+  output.textContent = 'Resolving...';
+  fetch('/v0/resolve?capability=' + encodeURIComponent(cap))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { output.textContent = JSON.stringify(data.error, null, 2); return; }
+      output.textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(function(e) { output.textContent = 'Error: ' + e.message; });
+});
+
+// Enter key in input
+document.getElementById('capability-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('resolve-button').click();
+});
+</script>
+</body>
+</html>

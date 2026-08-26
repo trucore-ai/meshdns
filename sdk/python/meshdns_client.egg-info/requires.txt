@@ -1,5 +1,0 @@
-httpx>=0.25
-
-[dev]
-pytest>=7
-pytest-httpx>=0.30

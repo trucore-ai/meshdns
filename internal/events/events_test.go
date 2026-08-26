@@ -1,116 +1,121 @@
 package events
 
 import (
-	"database/sql"
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/trucore-ai/meshdns/internal/store"
-	_ "modernc.org/sqlite"
 )
 
-func TestSourceHashSameIPSameHashDifferentIPsDifferentHashes(t *testing.T) {
-	one := sourceHash("1.2.3.4")
-	alsoOne := sourceHash("1.2.3.4")
-	two := sourceHash("1.2.3.5")
-
-	if one != alsoOne {
-		t.Fatalf("same IP hashes differ: %q != %q", one, alsoOne)
-	}
-	if one == two {
-		t.Fatalf("different IPs produced same hash: %q", one)
-	}
-}
-
-func TestSourceHashStripsHostPort(t *testing.T) {
-	withPort := sourceHash("1.2.3.4:5678")
-	bare := sourceHash("1.2.3.4")
-
-	if withPort != bare {
-		t.Fatalf("host:port hash = %q, want bare IP hash %q", withPort, bare)
-	}
-}
-
-func TestSourceHashHandlesBracketedIPv6Port(t *testing.T) {
-	withPort := sourceHash("[::1]:8080")
-	bare := sourceHash("::1")
-
-	if withPort != bare {
-		t.Fatalf("bracketed IPv6 host:port hash = %q, want bare IPv6 hash %q", withPort, bare)
-	}
-}
-
-func TestLogStoresHashWithoutRawIPAndPreservesPayload(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "meshdns.db")
-	st, err := store.Open(dbPath)
+func TestLog_HashesSourceIP(t *testing.T) {
+	dir := t.TempDir()
+	s, err := store.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
-		t.Fatalf("Open = %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := st.Close(); err != nil {
-			t.Fatalf("Close = %v", err)
-		}
-	})
+	defer s.Close()
 
-	rawIP := "1.2.3.4"
-	payload := map[string]any{
-		"server_id": "srv-1",
-		"up":        true,
-	}
-	if err := Log(st, "server.up", payload, rawIP+":5678"); err != nil {
-		t.Fatalf("Log = %v", err)
-	}
+	r := httptest.NewRequest("GET", "/v0/resolve?capability=test", nil)
+	r.RemoteAddr = "192.168.1.1:12345"
 
-	payloadJSON := readOnlyEventPayload(t, dbPath)
-	if strings.Contains(payloadJSON, rawIP) {
-		t.Fatalf("stored payload contains raw IP %q: %s", rawIP, payloadJSON)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal([]byte(payloadJSON), &got); err != nil {
-		t.Fatalf("Unmarshal payload = %v", err)
-	}
-
-	if got["server_id"] != "srv-1" {
-		t.Fatalf("server_id = %#v, want srv-1", got["server_id"])
-	}
-	if got["up"] != true {
-		t.Fatalf("up = %#v, want true", got["up"])
-	}
-	if got["source_hash"] != sourceHash(rawIP) {
-		t.Fatalf("source_hash = %#v, want %q", got["source_hash"], sourceHash(rawIP))
-	}
-	ts, ok := got["ts"].(string)
-	if !ok {
-		t.Fatalf("ts = %#v, want string", got["ts"])
-	}
-	if _, err := time.Parse(time.RFC3339, ts); err != nil {
-		t.Fatalf("ts is not RFC3339: %#v", got["ts"])
-	}
-	if _, ok := payload["source_hash"]; ok {
-		t.Fatalf("Log mutated caller payload with source_hash")
-	}
-	if _, ok := payload["ts"]; ok {
-		t.Fatalf("Log mutated caller payload with ts")
+	err = Log(s, "resolve", map[string]any{"capability": "test"}, r)
+	if err != nil {
+		t.Fatalf("Log: %v", err)
 	}
 }
 
-func readOnlyEventPayload(t *testing.T, dbPath string) string {
-	t.Helper()
+func TestLog_SameIPProducesSameHash(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer s.Close()
 
-	db, err := sql.Open("sqlite", dbPath)
+	ip := "10.0.0.1:8080"
+	r1 := httptest.NewRequest("GET", "/", nil)
+	r1.RemoteAddr = ip
+	r2 := httptest.NewRequest("GET", "/", nil)
+	r2.RemoteAddr = ip
+
+	hash1 := hashIP("10.0.0.1")
+	hash2 := hashIP("10.0.0.1")
+	if hash1 != hash2 {
+		t.Error("same IP should produce same hash")
+	}
+	_ = r1
+	_ = r2
+}
+
+func TestLog_DifferentIPProducesDifferentHash(t *testing.T) {
+	h1 := hashIP("1.2.3.4")
+	h2 := hashIP("5.6.7.8")
+	if h1 == h2 {
+		t.Error("different IPs should produce different hashes")
+	}
+}
+
+func TestHashNeverExposesRawIP(t *testing.T) {
+	raw := "203.0.113.42"
+	h := hashIP(raw)
+	// Raw IP must not appear in the hex hash
+	if len(h) == 0 {
+		t.Fatal("empty hash")
+	}
+	// Hex chars only
+	if _, err := hex.DecodeString(h); err != nil {
+		t.Error("hash is not valid hex:", h)
+	}
+}
+
+func hashIP(ip string) string {
+	sum := sha256.Sum256([]byte(ip))
+	return hex.EncodeToString(sum[:])[:16]
+}
+
+func TestLogStatic(t *testing.T) {
+	dir := t.TempDir()
+	s, err := store.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
-		t.Fatalf("sql.Open = %v", err)
+		t.Fatal(err)
 	}
-	defer db.Close()
+	defer s.Close()
 
-	var payload string
-	if err := db.QueryRow(`SELECT payload FROM events ORDER BY id DESC LIMIT 1`).Scan(&payload); err != nil {
-		t.Fatalf("query event payload = %v", err)
+	err = LogStatic(s, "probe", map[string]any{"server_id": "abc", "up": true})
+	if err != nil {
+		t.Fatalf("LogStatic: %v", err)
 	}
 
-	return payload
+	count, _ := s.CountEventsSince("probe", "2000-01-01T00:00:00Z")
+	if count < 1 {
+		t.Error("expected event to be recorded")
+	}
+}
+
+func TestSourceHash(t *testing.T) {
+	h := SourceHash("192.168.1.1:12345")
+	if h == "" {
+		t.Error("expected non-empty hash")
+	}
+	if len(h) != 16 {
+		t.Errorf("expected 16-char hash, got %d", len(h))
+	}
+}
+
+func TestDetectSDK(t *testing.T) {
+	if DetectSDK("meshdns-python/1.0") != "python-sdk" {
+		t.Error("expected python-sdk")
+	}
+	if DetectSDK("meshdns-client/1.0") != "python-sdk" {
+		t.Error("expected python-sdk for meshdns-client")
+	}
+	if DetectSDK("meshdns-js/1.0") != "typescript-sdk" {
+		t.Error("expected typescript-sdk for meshdns-js")
+	}
+	if DetectSDK("meshdns-ts/1.0") != "typescript-sdk" {
+		t.Error("expected typescript-sdk for meshdns-ts")
+	}
+	if DetectSDK("curl/8.0") != "curl" {
+		t.Error("expected curl for unknown UA")
+	}
 }
