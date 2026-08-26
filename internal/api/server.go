@@ -40,6 +40,8 @@ func (s *Server) mountRoutes() {
 	s.mux.HandleFunc("GET /v0/resolve", s.handleResolve)
 	s.mux.HandleFunc("GET /v0/export", s.handleExport)
 	s.mux.HandleFunc("GET /v0/stats", s.handleStats)
+	s.mux.HandleFunc("GET /v0/tools", s.handleListTools)
+	s.mux.HandleFunc("GET /v0/capabilities", s.handleListCapabilities)
 }
 
 // ServeHTTP implements http.Handler.

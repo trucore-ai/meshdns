@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -556,6 +557,171 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, stats)
+}
+
+// --- Tool / capabilities endpoints ---
+
+type toolEntry struct {
+	Name         string   `json:"name"`
+	ServerName   string   `json:"server_name"`
+	ServerURL    string   `json:"server_url"`
+	ServerID     string   `json:"server_id"`
+	Uptime30d    float64  `json:"uptime_30d"`
+	Up           int      `json:"up"`
+	Capabilities []string `json:"capabilities"`
+	CurlSnippet  string   `json:"curl_snippet"`
+}
+
+// GET /v0/tools — list tools extracted from server descriptions
+func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	limitStr := r.URL.Query().Get("limit")
+	limit := 50
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+		if limit > 200 {
+			limit = 200
+		}
+	}
+
+	servers, _, err := s.Store.ListServers(query, "", "active", "", 0)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to list servers")
+		return
+	}
+
+	type toolWithServer struct {
+		tool  string
+		entry toolEntry
+	}
+	var tools []toolWithServer
+	seen := make(map[string]struct{})
+
+	for _, server := range servers {
+		names := extractToolNames(server.Description)
+		for _, name := range names {
+			if query != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
+				continue
+			}
+			key := server.ID + ":" + name
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+
+			curl := ""
+			if server.ServerURL != "" {
+				curl = fmt.Sprintf(
+					`python3 ~/repo/hermes-trading/.hermes/scripts/lazymcp.py call --url %s --tool %s --args '{"key":"value"}'`,
+					server.ServerURL, name)
+			}
+
+			capCopy := make([]string, len(server.Capabilities))
+			copy(capCopy, server.Capabilities)
+
+			tools = append(tools, toolWithServer{
+				tool: name,
+				entry: toolEntry{
+					Name:         name,
+					ServerName:   server.Name,
+					ServerURL:    server.ServerURL,
+					ServerID:     server.ID,
+					Uptime30d:    server.Uptime30d,
+					Up:           server.Up,
+					Capabilities: capCopy,
+					CurlSnippet:  curl,
+				},
+			})
+		}
+	}
+
+	sort.Slice(tools, func(i, j int) bool {
+		return strings.ToLower(tools[i].tool) < strings.ToLower(tools[j].tool)
+	})
+
+	if len(tools) > limit {
+		tools = tools[:limit]
+	}
+
+	entries := make([]toolEntry, len(tools))
+	for i, t := range tools {
+		entries[i] = t.entry
+	}
+
+	writeJSON(w, 200, map[string]any{"tools": entries})
+}
+
+// GET /v0/capabilities — list all capabilities with active server counts
+func (s *Server) handleListCapabilities(w http.ResponseWriter, r *http.Request) {
+	caps, err := s.Store.ListCapabilities()
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to list capabilities")
+		return
+	}
+	if caps == nil {
+		caps = []store.CapabilityInfo{}
+	}
+	writeJSON(w, 200, map[string]any{"capabilities": caps})
+}
+
+// extractToolNames parses tool names from a server description using multiple patterns.
+func extractToolNames(description string) []string {
+	seen := make(map[string]struct{})
+	var names []string
+
+	addNames := func(raw string) {
+		for _, n := range strings.Split(raw, ",") {
+			n = strings.TrimSpace(n)
+			if idx := strings.IndexByte(n, '['); idx >= 0 {
+				n = strings.TrimSpace(n[:idx])
+			}
+			if n == "" {
+				continue
+			}
+			if _, ok := seen[n]; !ok {
+				seen[n] = struct{}{}
+				names = append(names, n)
+			}
+		}
+	}
+
+	// Pattern 1: Smithery " — tools: name1, name2 [...]"
+	if idx := strings.Index(description, " — tools: "); idx >= 0 {
+		rest := description[idx+len(" — tools: "):]
+		if end := strings.IndexByte(rest, '['); end >= 0 {
+			rest = rest[:end]
+		}
+		addNames(rest)
+	}
+
+	// Pattern 2: "Provides:" or "provides:" followed by a list
+	for _, prefix := range []string{"Provides: ", "provides: "} {
+		if idx := strings.Index(description, prefix); idx >= 0 {
+			rest := description[idx+len(prefix):]
+			if end := strings.Index(rest, "\n"); end >= 0 {
+				rest = rest[:end]
+			}
+			addNames(rest)
+		}
+	}
+
+	// Pattern 3: "Tools:" at the start of a line
+	for _, line := range strings.Split(description, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Tools:") || strings.HasPrefix(line, "tools:") {
+			addNames(strings.TrimPrefix(strings.TrimPrefix(line, "Tools:"), "tools:"))
+		}
+	}
+
+	// Pattern 4: Comma-separated list in parentheses after "tools"
+	if idx := strings.Index(description, "tools ("); idx >= 0 {
+		rest := description[idx+len("tools ("):]
+		if end := strings.IndexByte(rest, ')'); end >= 0 {
+			addNames(rest[:end])
+		}
+	}
+
+	return names
 }
 
 // init ensures time import is used (for landing page timestamp)

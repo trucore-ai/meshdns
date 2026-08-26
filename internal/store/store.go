@@ -60,6 +60,12 @@ type Stats struct {
 	SourceBreakdown map[string]int `json:"source_breakdown"`
 }
 
+// CapabilityInfo holds an aggregated capability name with its active server count.
+type CapabilityInfo struct {
+	Name  string `json:"name"`
+	Count int    `json:"server_count"`
+}
+
 // Store wraps the SQLite database connection.
 type Store struct {
 	db *sql.DB
@@ -422,6 +428,29 @@ func (s *Store) GetCapabilities(serverID string) ([]string, error) {
 		caps = append(caps, c)
 	}
 	return caps, nil
+}
+
+// ListCapabilities returns distinct capabilities with active server counts, ordered by count desc.
+func (s *Store) ListCapabilities() ([]CapabilityInfo, error) {
+	rows, err := s.db.Query(`SELECT c.capability, COUNT(*) as server_count 
+		FROM capabilities c 
+		JOIN servers s ON s.id = c.server_id 
+		WHERE s.status = 'active' 
+		GROUP BY c.capability 
+		ORDER BY server_count DESC, c.capability`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var caps []CapabilityInfo
+	for rows.Next() {
+		var c CapabilityInfo
+		if err := rows.Scan(&c.Name, &c.Count); err != nil {
+			return nil, err
+		}
+		caps = append(caps, c)
+	}
+	return caps, rows.Err()
 }
 
 // RecordProbe inserts a probe result.
