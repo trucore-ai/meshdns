@@ -1172,24 +1172,22 @@ document.querySelector('.filter-chip[data-capability=""]').addEventListener('cli
             ? `<span class="tool-badge" title="${escapeHTML((server.tool_names || []).join(', '))}">${toolCount} tool${toolCount !== 1 ? 's' : ''}</span>`
             : '';
           const curl = server.curl_snippet || '';
-          return ` + "`" + `
-            <tr>
-              <td>
-                <div class="name">${escapeHTML(server.name || server.id || '')}</div>
-                <div class="meta-row">${sourceBadge}${authBadge}${toolBadge}</div>
-              </td>
-              <td>
-                <div class="description" title="${escapeHTML(server.description || '')}">${escapeHTML(truncateDescription(server.description || ''))}</div>
-              </td>
-              <td><div class="capabilities">${renderCapabilities(server.capabilities || [])}</div></td>
-              <td><span class="badge ${statusClass}">${statusLabel}</span></td>
-              <td class="right">
-                <div>${uptimeLabel}</div>
-                <div class="muted" style="font-size:11px">${escapeHTML(shortDate(server.last_checked_at))}</div>
-                ${curl ? `<button class="copy-curl" onclick="copyCurl(this, '${escapeHTML(server.server_url)}')" title="Copy lazy MCP call">📋</button>` : ''}
-              </td>
-            </tr>
-          ` + "`" + `;
+          return '<tr>' +
+            '<td>' +
+              '<div class="name">' + escapeHTML(server.name || server.id || '') + '</div>' +
+              '<div class="meta-row">' + sourceBadge + authBadge + toolBadge + '</div>' +
+            '</td>' +
+            '<td>' +
+              '<div class="description" title="' + escapeHTML(server.description || '') + '">' + escapeHTML(truncateDescription(server.description || '')) + '</div>' +
+            '</td>' +
+            '<td><div class="capabilities">' + renderCapabilities(server.capabilities || []) + '</div></td>' +
+            '<td><span class="badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+            '<td class="right">' +
+              '<div>' + uptimeLabel + '</div>' +
+              '<div class="muted" style="font-size:11px">' + escapeHTML(shortDate(server.last_checked_at)) + '</div>' +
+              (curl ? '<button class="copy-curl" onclick="copyCurl(this, \'' + escapeHTML(server.server_url) + '\')" title="Copy lazy MCP call">📋</button>' : '') +
+            '</td>' +
+          '</tr>';
         }).join('');
       }
       serversUpdated.textContent = 'Updated just now';
