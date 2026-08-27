@@ -121,7 +121,7 @@
   .toggle-pill.active { background: rgba(167,139,250,0.14); color: #c4b5fd; }
   .toggle-pill:hover:not(.active) { color: var(--text); }
 
-  /* --- SEARCH & COMBO BOX --- */
+  /* --- SEARCH --- */
   .search-row {
     display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;
   }
@@ -137,36 +137,6 @@
   }
   .search-wrap input::placeholder { color: #5a6373; }
   .search-wrap .search-icon { color: var(--muted); font-size: 14px; margin-right: 2px; flex-shrink: 0; }
-
-  .combo-wrap { position: relative; min-width: 180px; }
-  .combo-input {
-    width: 100%; padding: 10px 14px;
-    background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm); color: var(--text); font-size: 13px;
-    outline: none; font-family: inherit;
-    transition: border-color 200ms ease;
-  }
-  .combo-input:focus { border-color: rgba(125,211,252,0.4); }
-  .combo-input::placeholder { color: #5a6373; }
-  .combo-dropdown {
-    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100;
-    background: rgba(15, 23, 40, 0.98); border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm); max-height: 260px; overflow-y: auto;
-    box-shadow: var(--shadow-lg);
-  }
-  .combo-dropdown.open { display: block; }
-  .combo-dropdown::-webkit-scrollbar { width: 4px; }
-  .combo-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-  .combo-item {
-    padding: 9px 14px; font-size: 13px; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center;
-    transition: background 120ms ease;
-  }
-  .combo-item:hover { background: rgba(255,255,255,0.04); }
-  .combo-item .cap-count { font-size: 10px; color: var(--muted); opacity: 0.6; }
-  .combo-item.trucore { color: #a5b4fc; border-bottom: 1px solid rgba(99,102,241,0.15); }
-  .combo-item.empty { color: var(--muted); font-style: italic; cursor: default; }
-  .combo-item.empty:hover { background: transparent; }
 
   .selected-cap-pill {
     display: inline-flex; align-items: center; gap: 6px;
@@ -575,7 +545,6 @@
     .site-header { flex-direction: column; align-items: flex-start; }
     .card-grid { grid-template-columns: 1fr; }
     .search-row { flex-direction: column; }
-    .combo-wrap { width: 100%; }
   }
 </style>
 </head>
@@ -690,15 +659,11 @@
             <button class="toggle-pill" id="toggle-tools">Tools</button>
           </div>
 
-          <!-- Search + Combo + Page size -->
+          <!-- Search + Page size -->
           <div class="search-row">
             <div class="search-wrap">
               <span class="search-icon">⌕</span>
               <input type="text" id="server-search" placeholder="Search by name, description, or capability..." autocomplete="off" />
-            </div>
-            <div class="combo-wrap" id="combo-wrap">
-              <input type="text" class="combo-input" id="combo-input" placeholder="All capabilities" autocomplete="off" />
-              <div class="combo-dropdown" id="combo-dropdown"></div>
             </div>
             <div class="page-size-row">
               <button class="page-size-btn active" data-size="30">30</button>
@@ -887,8 +852,6 @@
   var loadMoreWrap = document.getElementById('load-more-wrap');
   var loadMoreBtn = document.getElementById('load-more-btn');
   var searchInput = document.getElementById('server-search');
-  var comboInput = document.getElementById('combo-input');
-  var comboDropdown = document.getElementById('combo-dropdown');
   var selCapContainer = document.getElementById('selected-cap-container');
   var capPillRow = document.getElementById('cap-pill-row');
   var toggleServersBtn = document.getElementById('toggle-servers');
@@ -991,7 +954,6 @@
       allCapabilities = (data.capabilities || []).sort(function(a,b) {
         return b.server_count - a.server_count;
       });
-      renderComboDropdown('');
       renderCapPills();
     } catch(e) {}
   }
@@ -1039,41 +1001,8 @@
     selectTrustTier(pill.getAttribute('data-tier'));
   });
 
-  function renderComboDropdown(filter) {
-    var filterLower = (filter || '').toLowerCase();
-    var html = '';
-
-    // TruCore special option
-    if (!filterLower || 'trucore'.indexOf(filterLower) >= 0) {
-      html += '<div class="combo-item trucore" data-cap="__trucore__">TruCore<span class="cap-count">TruCore servers</span></div>';
-    }
-
-    // All capabilities (default)
-    if (!filterLower) {
-      html += '<div class="combo-item active-cap" data-cap="">All capabilities</div>';
-    }
-
-    var shown = 0;
-    allCapabilities.forEach(function(cap) {
-      if (shown >= 50) return;
-      var name = cap.name || '';
-      if (filterLower && name.toLowerCase().indexOf(filterLower) < 0) return;
-      shown++;
-      html += '<div class="combo-item" data-cap="' + esc(name) + '">' + esc(name) + '<span class="cap-count">' + cap.server_count + '</span></div>';
-    });
-
-    if (!html) {
-      html = '<div class="combo-item empty">No matching capabilities</div>';
-    }
-
-    comboDropdown.innerHTML = html;
-    comboDropdown.classList.add('open');
-  }
-
   function selectCapability(cap) {
     currentCapability = cap;
-    comboInput.value = '';
-    comboDropdown.classList.remove('open');
     renderCapPills();
 
     selCapContainer.innerHTML = '';
@@ -1095,49 +1024,6 @@
     var pill = e.target.closest('.cap-pill');
     if (!pill) return;
     selectCapability(pill.getAttribute('data-cap'));
-  });
-
-  // --- COMBO INPUT ---
-  // The list opens ONLY on explicit click or typing — never on mere focus
-  // (tabbing in must not leave a dropdown hanging open). It closes on
-  // outside-click, Escape, blur, or selection.
-  comboInput.addEventListener('click', function() {
-    if (comboDropdown.classList.contains('open')) {
-      comboDropdown.classList.remove('open');
-    } else {
-      renderComboDropdown(comboInput.value);
-    }
-  });
-
-  comboInput.addEventListener('input', function() {
-    renderComboDropdown(comboInput.value);
-  });
-
-  comboInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      comboDropdown.classList.remove('open');
-      comboInput.blur();
-    }
-  });
-
-  comboInput.addEventListener('blur', function() {
-    setTimeout(function() {
-      comboDropdown.classList.remove('open');
-    }, 150);
-  });
-
-  // Close when clicking anywhere outside the combo box.
-  document.addEventListener('click', function(e) {
-    var wrap = comboInput.closest('.combo-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-      comboDropdown.classList.remove('open');
-    }
-  });
-
-  comboDropdown.addEventListener('click', function(e) {
-    var item = e.target.closest('.combo-item');
-    if (!item || item.classList.contains('empty')) return;
-    selectCapability(item.getAttribute('data-cap'));
   });
 
   // --- PAGE SIZE ---
@@ -1176,7 +1062,6 @@
     if (mode === 'servers') {
       registryTitle.textContent = 'MCP Servers';
       searchInput.placeholder = 'Search by name, description, or capability...';
-      comboInput.parentElement.style.display = '';
       document.querySelector('.page-size-row').style.display = '';
       capPillRow.style.display = '';
       resetPagination();
@@ -1184,8 +1069,7 @@
     } else {
       registryTitle.textContent = 'MCP Tools';
       searchInput.placeholder = 'Search tools by name, capability, or parent server...';
-      // Keep the same filter UI: combo + page-size + cap pills + trust pills all stay visible
-      comboInput.parentElement.style.display = '';
+      // Keep the same filter UI: page-size + cap pills + trust pills all stay visible
       document.querySelector('.page-size-row').style.display = '';
       capPillRow.style.display = '';
       resetPagination();
