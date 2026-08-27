@@ -83,8 +83,8 @@ func TestLandingPage(t *testing.T) {
 	if !strings.Contains(ct, "text/html") {
 		t.Errorf("expected text/html, got %s", ct)
 	}
-	if !strings.Contains(w.Body.String(), "MeshDNS") {
-		t.Errorf("expected MeshDNS in HTML body")
+	if !strings.Contains(w.Body.String(), "ProvenGraph") {
+		t.Errorf("expected ProvenGraph in HTML body")
 	}
 }
 

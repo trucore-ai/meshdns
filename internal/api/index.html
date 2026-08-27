@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MeshDNS — MCP Service Registry</title>
-<meta name="description" content="MeshDNS is a capability-based service registry for MCP servers. Discover, register, and resolve — never hardcode a server URL again." />
+<title>ProvenGraph Trust — the provenance graph for the agent economy</title>
+<meta name="description" content="ProvenGraph Trust answers who-do-I-trust: a provenance graph scoring MCP servers on reliability, latency, cost, and outcome-verified reputation. Never hardcode a server URL again." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -261,7 +261,7 @@
   .latency-badge { color: #fde68a; background: rgba(253,230,138,0.06); border-color: rgba(253,230,138,0.16); }
   .tool-count-badge { color: #67e8f9; background: rgba(103,232,249,0.06); border-color: rgba(103,232,249,0.16); }
 
-  /* Trust badge — the MeshDNS trust layer */
+  /* Trust badge — the ProvenGraph trust layer */
   .trust-badge {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 10px; font-weight: 600;
@@ -557,7 +557,7 @@
     </a>
     <nav class="tc-nav">
       <a href="https://www.trucore.xyz/atf">ATF</a>
-      <a href="https://meshdns.trucore.xyz" aria-current="true">MeshDNS</a>
+      <a href="https://meshdns.trucore.xyz" aria-current="true">ProvenGraph</a>
       <a href="https://x402fuel.trucore.xyz">x402Fuel</a>
     </nav>
   </div>
@@ -575,9 +575,9 @@
 
   <!-- HERO -->
   <div class="hero">
-    <div class="eyebrow"><span aria-hidden="true">○</span> Agent Trust Graph</div>
-    <h1>MeshDNS — trust scores for MCP servers. Agents query reliability, latency, cost, and outcome ratings at runtime.</h1>
-    <p class="lede">Discovery is commoditizing; trust is the unowned layer. Same registry + health checks, new product: verified badges and trust scoring that agents actually use.</p>
+    <div class="eyebrow"><span aria-hidden="true">○</span> Provenance Graph · Trust</div>
+    <h1>ProvenGraph Trust — the trust layer for the agent economy. Agents query reliability, latency, cost, and outcome-verified reputation at runtime.</h1>
+    <p class="lede">Discovery is commoditizing; trust is the unowned layer. One provenance graph — who proved it, is it still valid, can I trust it — scoring every MCP server agents route through.</p>
   </div>
   <!-- Mesh Constellation -->
   <div style="display:flex; justify-content:flex-end; margin-top:-84px; margin-bottom:20px; pointer-events:none;">
@@ -766,7 +766,7 @@
         <div class="skill-icon">⚡</div>
         <div class="skill-label">Entry Point</div>
         <h3 class="skill-name">meshdns-quickstart</h3>
-        <p class="skill-desc">One-stop guide: what MeshDNS is, how to use it, register servers, lazy MCP pattern.</p>
+        <p class="skill-desc">One-stop guide: what ProvenGraph Trust is, how to use it, register servers, lazy MCP pattern.</p>
         <div class="skill-tags">
           <span class="skill-tag">discover</span><span class="skill-tag">register</span><span class="skill-tag">lazy-mcp</span>
         </div>
@@ -1198,7 +1198,7 @@
         toolBadge = '<span class="tool-count-badge" title="' + esc(toolTitle) + '">' + toolCount + ' tool' + (toolCount !== 1 ? 's' : '') + '</span>';
       }
 
-      // Trust badge — the MeshDNS trust layer
+      // Trust badge — the ProvenGraph trust layer
       var trustTier = server.trust_tier || '';
       var trustScore = server.trust_score;
       var trustBadge = '';

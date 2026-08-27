@@ -1,4 +1,6 @@
-# MeshDNS
+# ProvenGraph Trust
+
+> The provenance graph for the agent economy — trust scores for MCP servers, computed over a shared provenance graph. Formerly MeshDNS.
 
 [![Go Version](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

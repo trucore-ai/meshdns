@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/trucore-ai/meshdns/internal/config"
+	"github.com/trucore-ai/meshdns/internal/graph"
 	"github.com/trucore-ai/meshdns/internal/store"
 )
 
@@ -17,12 +18,16 @@ var logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level:
 type Server struct {
 	Store  *store.Store
 	Config *config.Config
+	Graph  *graph.Graph
 	mux    *http.ServeMux
 }
 
-// NewServer creates a new API server with all routes mounted.
+// NewServer creates a new API server with all routes mounted. It also
+// constructs and migrates the ProvenGraph core (shared single-writer conn).
 func NewServer(s *store.Store, cfg *config.Config) *Server {
-	srv := &Server{Store: s, Config: cfg, mux: http.NewServeMux()}
+	g := graph.New(s.DB())
+	_ = g.Migrate()
+	srv := &Server{Store: s, Config: cfg, Graph: g, mux: http.NewServeMux()}
 	srv.mountRoutes()
 	return srv
 }

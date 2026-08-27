@@ -94,6 +94,10 @@ func Open(dbPath string) (*Store, error) {
 // Close closes the database connection.
 func (s *Store) Close() error { return s.db.Close() }
 
+// DB exposes the underlying *sql.DB so other packages (e.g. the provenance
+// graph engine) can share the same single-writer connection.
+func (s *Store) DB() *sql.DB { return s.db }
+
 func (s *Store) migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS servers (

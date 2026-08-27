@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/trucore-ai/meshdns/internal/events"
+	"github.com/trucore-ai/meshdns/internal/graph"
 	"github.com/trucore-ai/meshdns/internal/store"
 )
 
@@ -89,6 +90,7 @@ type ServerWithState struct {
 	Verified    bool     `json:"verified,omitempty"`
 	OutcomeCount int     `json:"outcome_count,omitempty"`
 	OutcomeRate  float64 `json:"outcome_success_rate,omitempty"`
+	Provenance   *graph.TrustBreakdown `json:"provenance,omitempty"`
 }
 
 // --- Validation ---
@@ -268,7 +270,7 @@ func computeTrust(sws store.ServerWithState, source string) (float64, string, bo
 	}
 }
 
-func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
+func (s *Server) storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 	source, sourceURL := computeSource(sws)
 	if sws.Source != "" {
 		source = sws.Source
@@ -306,7 +308,107 @@ func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 		Verified:      verified,
 		OutcomeCount:  sws.OutcomeCount,
 		OutcomeRate:   sws.OutcomeRate,
+		Provenance:    s.provenanceFor(sws.ID),
 	}
+}
+
+// provenanceFor reads the ProvenGraph core for a service's provenance breakdown.
+// Returns nil when the graph has no data for it (so the field stays omitted).
+func (s *Server) provenanceFor(id string) *graph.TrustBreakdown {
+	if s.Graph == nil {
+		return nil
+	}
+	gb, err := s.Graph.TrustScore(id)
+	if err != nil {
+		return nil
+	}
+	if gb.NumAttestations == 0 && gb.NumOutcomes == 0 && gb.NumContradictions == 0 {
+		return nil
+	}
+	return &gb
+}
+
+// syncServerToGraph writes a service + its issuing org + attestation edge into
+// the provenance graph. Idempotent (upsert + deterministic attestation edges).
+// The flat trust score stays authoritative for now; the graph is the provenance
+// source of truth that the trust score will read once backfilled + validated.
+func (s *Server) syncServerToGraph(sws store.ServerWithState) {
+	if s.Graph == nil {
+		return
+	}
+	attrs := map[string]any{
+		"name":            sws.Name,
+		"server_url":      sws.ServerURL,
+		"capabilities":    sws.Capabilities,
+		"uptime_30d":      sws.Uptime30d,
+		"avg_latency_ms":  sws.AvgLatencyMs,
+		"source":          sws.Source,
+		"owner_contact":   sws.OwnerContact,
+	}
+	_ = s.Graph.UpsertNode(sws.ID, graph.NodeService, attrs)
+
+	// Issuer = provenance source (catalog), falling back to owner contact.
+	src, _ := computeSource(sws)
+	if sws.Source != "" {
+		src = sws.Source
+	}
+	issuer := src
+	if issuer == "" || issuer == "manual" {
+		issuer = sws.OwnerContact
+	}
+	if issuer == "" {
+		issuer = "unknown"
+	}
+
+	// Known catalogs + first-party are trusted issuers; "manual"/unknown are not.
+	orgTrust := 0.3
+	switch strings.ToLower(issuer) {
+	case "trucore", "mcp registry", "smithery", "npm":
+		orgTrust = 1.0
+	}
+
+	orgID := "org:" + strings.ToLower(strings.TrimSpace(issuer))
+	_ = s.Graph.UpsertNode(orgID, graph.NodeOrg, map[string]any{"name": issuer, "trust": orgTrust})
+	_, _ = s.Graph.AddEdge(orgID, sws.ID, graph.EdgeAttestsTo, "", "", issuer, 1.0, nil)
+}
+
+// SyncAllToGraph backfills every active server into the provenance graph.
+// Used by the provenance-sync command (one-time migration) and safe to re-run
+// (upserts + deterministic attestation edges are idempotent).
+func SyncAllToGraph(s *store.Store, g *graph.Graph) (int, error) {
+	srv := &Server{Store: s, Graph: g}
+	servers, _, err := s.ListServers("", "", "active", "", 0)
+	if err != nil {
+		return 0, err
+	}
+	for _, sws := range servers {
+		srv.syncServerToGraph(sws)
+	}
+	return len(servers), nil
+}
+
+// syncOutcomeToGraph records an outcome report as an observed-by edge from the
+// reporter agent. The reporter's own trust (set separately) weights the outcome
+// — this is the anti-gaming moat.
+func (s *Server) syncOutcomeToGraph(serverID string, success bool, rating int, reporter string) {
+	if s.Graph == nil {
+		return
+	}
+	reporterID := reporter
+	if reporterID == "" {
+		reporterID = "unknown"
+	}
+	reporterID = "agent:" + strings.ToLower(strings.TrimSpace(reporterID))
+	// Ensure the reporter node exists (default trust 0.3; first-party verifier higher).
+	_ = s.Graph.UpsertNode(reporterID, graph.NodeAgent, map[string]any{"name": reporter})
+	succ := 0.0
+	if success {
+		succ = 1.0
+	}
+	_, _ = s.Graph.AddEdge(reporterID, serverID, graph.EdgeObservedBy, "", "", reporter, 1.0, map[string]any{
+		"success": succ,
+		"rating":  rating,
+	})
 }
 
 // --- Route handlers ---
@@ -393,6 +495,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Set capabilities
 	s.Store.SetCapabilities(serverID, req.Capabilities)
 
+	// Sync to the ProvenGraph core (service node + org + attestation edge).
+	s.syncServerToGraph(store.ServerWithState{
+		ID:           serverID,
+		Name:         req.Name,
+		Description:  req.Description,
+		ServerURL:    req.ServerURL,
+		Capabilities: req.Capabilities,
+		OwnerContact: req.OwnerContact,
+	})
+
 	// Log event
 	events.Log(s.Store, "register", map[string]any{
 		"server_id":        serverID,
@@ -464,6 +576,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	if result.Capabilities == nil {
 		result.Capabilities = []string{}
 	}
+	result.Provenance = s.provenanceFor(serverID)
 
 	writeJSON(w, 200, result)
 }
@@ -581,7 +694,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	// Convert store.ServerWithState to api.ServerWithState
 	result := make([]ServerWithState, len(servers))
 	for i, sws := range servers {
-		result[i] = storeServerWithStateToAPI(sws)
+		result[i] = s.storeServerWithStateToAPI(sws)
 	}
 
 	// Ensure we return [] not null
@@ -620,7 +733,7 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	// Convert to api types
 	result := make([]ServerWithState, len(servers))
 	for i, sws := range servers {
-		result[i] = storeServerWithStateToAPI(sws)
+		result[i] = s.storeServerWithStateToAPI(sws)
 	}
 
 	if result == nil {
@@ -644,7 +757,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// (source, auth, tool_names, curl_snippet, trust_score, trust_tier) are present.
 	converted := make([]ServerWithState, len(export.Servers))
 	for i, sws := range export.Servers {
-		converted[i] = storeServerWithStateToAPI(sws)
+		converted[i] = s.storeServerWithStateToAPI(sws)
 	}
 	if converted == nil {
 		converted = []ServerWithState{}
@@ -698,6 +811,8 @@ func (s *Server) handleReportOutcome(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "db_error", "failed to record outcome")
 		return
 	}
+	// Sync the outcome to the provenance graph (observed-by edge, the moat).
+	s.syncOutcomeToGraph(req.ServerID, req.Success, req.Rating, req.Reporter)
 	stats, _ := s.Store.GetOutcomeStats(req.ServerID)
 	writeJSON(w, 201, map[string]any{"status": "recorded", "outcome": stats})
 }

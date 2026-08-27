@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trucore-ai/meshdns/internal/api"
 	"github.com/trucore-ai/meshdns/internal/config"
+	"github.com/trucore-ai/meshdns/internal/graph"
 	"github.com/trucore-ai/meshdns/internal/health"
 	"github.com/trucore-ai/meshdns/internal/store"
 )
@@ -28,8 +29,8 @@ var logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level:
 func main() {
 	root := &cobra.Command{
 		Use:   "meshdns",
-		Short: "MeshDNS — MCP-native service registry for AI agents",
-		Long:  "MeshDNS CLI: serve, doctor, setup, register, and resolve capabilities.\n\nNever hardcode an MCP server again.",
+		Short: "ProvenGraph Trust — the provenance graph for the agent economy",
+		Long:  "ProvenGraph Trust CLI: serve, doctor, setup, register, resolve, and provenance-sync.\n\nTrust scores for MCP servers, computed over a provenance graph.",
 	}
 
 	root.AddCommand(serveCmd())
@@ -37,6 +38,7 @@ func main() {
 	root.AddCommand(setupCmd())
 	root.AddCommand(registerCmd())
 	root.AddCommand(resolveCmd())
+	root.AddCommand(provenanceSyncCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -49,7 +51,7 @@ func main() {
 func serveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "serve",
-		Short: "Start the MeshDNS API server",
+		Short: "Start the ProvenGraph Trust API server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Load()
 
@@ -87,8 +89,8 @@ func serveCmd() *cobra.Command {
 				hs.Shutdown(shutdownCtx)
 			}()
 
-			logger.Info("MeshDNS starting", "port", cfg.Port, "db", cfg.DBPath)
-			fmt.Fprintf(os.Stderr, "🚀 MeshDNS starting on %s (db: %s)\n", cfg.Port, cfg.DBPath)
+			logger.Info("ProvenGraph Trust starting", "port", cfg.Port, "db", cfg.DBPath)
+			fmt.Fprintf(os.Stderr, "🚀 ProvenGraph Trust starting on %s (db: %s)\n", cfg.Port, cfg.DBPath)
 			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
 				return fmt.Errorf("server error: %w", err)
 			}
@@ -331,6 +333,37 @@ func floatOrZero(v any) float64 {
 		return f
 	}
 	return 0
+}
+
+// ----- provenance-sync -----
+
+// provenanceSyncCmd backfills all active servers into the ProvenGraph core.
+// Safe to re-run (upserts + deterministic attestation edges are idempotent).
+func provenanceSyncCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "provenance-sync",
+		Short: "Backfill all active servers into the ProvenGraph core",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.Load()
+			s, err := store.Open(cfg.DBPath)
+			if err != nil {
+				return fmt.Errorf("open store: %w", err)
+			}
+			defer s.Close()
+
+			g := graph.New(s.DB())
+			if err := g.Migrate(); err != nil {
+				return fmt.Errorf("migrate graph: %w", err)
+			}
+
+			n, err := api.SyncAllToGraph(s, g)
+			if err != nil {
+				return fmt.Errorf("sync: %w", err)
+			}
+			fmt.Printf("ProvenGraph sync complete: %d servers written to the graph.\n", n)
+			return nil
+		},
+	}
 }
 
 func init() {
