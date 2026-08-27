@@ -291,6 +291,25 @@
   .latency-badge { color: #fde68a; background: rgba(253,230,138,0.06); border-color: rgba(253,230,138,0.16); }
   .tool-count-badge { color: #67e8f9; background: rgba(103,232,249,0.06); border-color: rgba(103,232,249,0.16); }
 
+  /* Trust badge — the MeshDNS trust layer */
+  .trust-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600;
+    border-radius: 999px; padding: 3px 8px; border: 1px solid; white-space: nowrap;
+    cursor: help;
+  }
+  .trust-badge .trust-score { font-family: var(--mono); font-weight: 700; opacity: 0.9; }
+  .trust-badge.verified { color: #bbf7d0; background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); }
+  .trust-badge.trusted { color: #67e8f9; background: rgba(103,232,249,0.08); border-color: rgba(103,232,249,0.25); }
+  .trust-badge.provisional { color: #fde68a; background: rgba(253,230,138,0.08); border-color: rgba(253,230,138,0.25); }
+  .trust-badge.untrusted { color: #fecdd3; background: rgba(251,113,133,0.08); border-color: rgba(251,113,133,0.25); }
+
+  /* Trust tier filter pills */
+  .trust-pill-row .cap-pill.active.verified { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.35); color: #bbf7d0; }
+  .trust-pill-row .cap-pill.active.trusted { background: rgba(103,232,249,0.14); border-color: rgba(103,232,249,0.35); color: #67e8f9; }
+  .trust-pill-row .cap-pill.active.provisional { background: rgba(253,230,138,0.14); border-color: rgba(253,230,138,0.35); color: #fde68a; }
+  .trust-pill-row .cap-pill.active.untrusted { background: rgba(251,113,133,0.14); border-color: rgba(251,113,133,0.35); color: #fecdd3; }
+
   .card-caps {
     display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;
   }
@@ -692,6 +711,9 @@
           <!-- Capability pills -->
           <div class="cap-pill-row" id="cap-pill-row"></div>
 
+          <!-- Trust tier pills -->
+          <div class="cap-pill-row trust-pill-row" id="trust-pill-row" style="margin-bottom:4px;"></div>
+
           <!-- Results info -->
           <div class="results-info" id="results-info">
             <span id="results-text">Loading registry...</span>
@@ -714,27 +736,6 @@
 
     <!-- RIGHT: Sidebar -->
     <div>
-
-      <!-- Resolve Demo -->
-      <div class="panel sidebar-panel">
-        <div class="panel-body">
-          <div class="mini-title">Try It</div>
-          <h3>Resolve a capability</h3>
-          <p style="color:var(--muted);font-size:13px;margin:0 0 12px;">Type a capability name below to find the best available MCP server. Results are ranked by 30-day uptime.</p>
-          <div class="resolve-input-row">
-            <input id="capability-input" type="text" placeholder="e.g. weather, web-search, documents" autocomplete="off" spellcheck="false" />
-            <button id="resolve-button" type="button">Resolve</button>
-          </div>
-          <div class="resolve-results" id="resolve-output">
-            <div class="resolve-empty">👆 Enter a capability to see matching servers.</div>
-          </div>
-          <p style="color:var(--muted);font-size:11px;margin:8px 0 0;">
-            Try: <code style="font-family:var(--mono);color:var(--accent-2);cursor:pointer" onclick="document.getElementById('capability-input').value='weather';document.getElementById('resolve-button').click()">weather</code>,
-            <code style="font-family:var(--mono);color:var(--accent-2);cursor:pointer" onclick="document.getElementById('capability-input').value='web-search';document.getElementById('resolve-button').click()">web-search</code>,
-            <code style="font-family:var(--mono);color:var(--accent-2);cursor:pointer" onclick="document.getElementById('capability-input').value='payment';document.getElementById('resolve-button').click()">payment</code>
-          </p>
-        </div>
-      </div>
 
       <!-- API reference -->
       <div class="panel sidebar-panel">
@@ -893,10 +894,12 @@
   var toggleServersBtn = document.getElementById('toggle-servers');
   var toggleToolsBtn = document.getElementById('toggle-tools');
   var registryTitle = document.getElementById('registry-title');
+  var trustPillRow = document.getElementById('trust-pill-row');
 
   // --- STATE ---
   var currentQuery = '';
   var currentCapability = '';
+  var currentTrustTier = ''; // '' | verified | trusted | provisional | untrusted
   var nextCursor = null;
   var totalServers = 0;
   var currentLimit = 30;
@@ -1005,6 +1008,37 @@
     capPillRow.innerHTML = html;
   }
 
+  // --- TRUST TIER PILLS ---
+  var TRUST_TIERS = [
+    { key: '', label: 'All trust', cls: '' },
+    { key: 'verified', label: '✓ Verified', cls: 'verified' },
+    { key: 'trusted', label: 'Trusted', cls: 'trusted' },
+    { key: 'provisional', label: 'Provisional', cls: 'provisional' },
+    { key: 'untrusted', label: 'Untrusted', cls: 'untrusted' }
+  ];
+
+  function renderTrustPills() {
+    var html = '';
+    TRUST_TIERS.forEach(function(t) {
+      var active = (currentTrustTier === t.key) ? ' active ' + t.cls : '';
+      html += '<button class="cap-pill' + (active ? ' ' + active.trim() : '') + '" data-tier="' + t.key + '">' + t.label + '</button>';
+    });
+    trustPillRow.innerHTML = html;
+  }
+
+  function selectTrustTier(tier) {
+    currentTrustTier = tier;
+    renderTrustPills();
+    resetPagination();
+    loadData();
+  }
+
+  trustPillRow.addEventListener('click', function(e) {
+    var pill = e.target.closest('.cap-pill');
+    if (!pill) return;
+    selectTrustTier(pill.getAttribute('data-tier'));
+  });
+
   function renderComboDropdown(filter) {
     var filterLower = (filter || '').toLowerCase();
     var html = '';
@@ -1064,18 +1098,40 @@
   });
 
   // --- COMBO INPUT ---
-  comboInput.addEventListener('focus', function() {
-    renderComboDropdown(comboInput.value);
+  // The list opens ONLY on explicit click or typing — never on mere focus
+  // (tabbing in must not leave a dropdown hanging open). It closes on
+  // outside-click, Escape, blur, or selection.
+  comboInput.addEventListener('click', function() {
+    if (comboDropdown.classList.contains('open')) {
+      comboDropdown.classList.remove('open');
+    } else {
+      renderComboDropdown(comboInput.value);
+    }
   });
 
   comboInput.addEventListener('input', function() {
     renderComboDropdown(comboInput.value);
   });
 
+  comboInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      comboDropdown.classList.remove('open');
+      comboInput.blur();
+    }
+  });
+
   comboInput.addEventListener('blur', function() {
     setTimeout(function() {
       comboDropdown.classList.remove('open');
     }, 150);
+  });
+
+  // Close when clicking anywhere outside the combo box.
+  document.addEventListener('click', function(e) {
+    var wrap = comboInput.closest('.combo-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      comboDropdown.classList.remove('open');
+    }
   });
 
   comboDropdown.addEventListener('click', function(e) {
@@ -1127,11 +1183,12 @@
       loadServers(true);
     } else {
       registryTitle.textContent = 'MCP Tools';
-      searchInput.placeholder = 'Search tools by name or parent server...';
-      comboInput.parentElement.style.display = 'none';
-      document.querySelector('.page-size-row').style.display = 'none';
-      capPillRow.style.display = 'none';
-      selectCapability('');
+      searchInput.placeholder = 'Search tools by name, capability, or parent server...';
+      // Keep the same filter UI: combo + page-size + cap pills + trust pills all stay visible
+      comboInput.parentElement.style.display = '';
+      document.querySelector('.page-size-row').style.display = '';
+      capPillRow.style.display = '';
+      resetPagination();
       loadTools();
     }
   }
@@ -1172,6 +1229,13 @@
 
       var data = await fetchJSON(url);
       var servers = data.servers || [];
+
+      // Filter by trust tier (computed server-side; applied client-side)
+      if (currentTrustTier) {
+        servers = servers.filter(function(s) {
+          return (s.trust_tier || '') === currentTrustTier;
+        });
+      }
 
       if (currentCapability === '__trucore__') {
         servers = servers.filter(isTruCore);
@@ -1250,6 +1314,18 @@
         toolBadge = '<span class="tool-count-badge" title="' + esc(toolTitle) + '">' + toolCount + ' tool' + (toolCount !== 1 ? 's' : '') + '</span>';
       }
 
+      // Trust badge — the MeshDNS trust layer
+      var trustTier = server.trust_tier || '';
+      var trustScore = server.trust_score;
+      var trustBadge = '';
+      if (trustTier) {
+        var trustLabel = trustTier.charAt(0).toUpperCase() + trustTier.slice(1);
+        var trustTitle = 'Trust ' + (trustScore != null ? trustScore : '') + '/100 — uptime · latency · provenance · tool richness';
+        trustBadge = '<span class="trust-badge ' + esc(trustTier) + '" title="' + trustTitle + '">' +
+          (trustTier === 'verified' ? '✓ ' : '') + esc(trustLabel) +
+          '<span class="trust-score">' + (trustScore != null ? trustScore : '') + '</span></span>';
+      }
+
       // Capabilities
       var caps = server.capabilities || [];
       var capsHTML = '';
@@ -1296,6 +1372,7 @@
 
       // Meta
       html += '<div class="card-meta">';
+      html += trustBadge;
       html += authBadge;
       html += latencyBadge;
       html += toolBadge;
@@ -1377,71 +1454,46 @@
   // --- LOAD TOOLS ---
   async function loadTools() {
     try {
-      var data = await fetchJSON('/v0/servers?limit=200');
-      var allServers = data.servers || [];
+      // Use the /v0/tools endpoint with the same filters as server mode
+      var url = '/v0/tools?limit=200';
+      if (currentCapability && currentCapability !== '__trucore__') {
+        url += '&capability=' + encodeURIComponent(currentCapability);
+      }
+      if (currentQuery) {
+        url += '&query=' + encodeURIComponent(currentQuery);
+      }
+      var data = await fetchJSON(url);
+      var tools = data.tools || [];
 
-      // Extract tools from server data
-      var toolEntries = [];
-      allServers.forEach(function(server) {
-        var toolNames = server.tool_names || [];
-        toolNames.forEach(function(toolName) {
-          toolEntries.push({
-            tool: toolName,
-            serverName: server.name || '',
-            serverUrl: server.server_url || '',
-            up: server.up,
-            uptime_30d: server.uptime_30d || 0,
-            curlSnippet: server.curl_snippet || ''
-          });
-        });
-      });
-
-      // Also try extracting from description " — tools: name1, name2, ..."
-      allServers.forEach(function(server) {
-        var desc = server.description || '';
-        var match = desc.match(/—\s*tools:\s*([^,\n]+(?:,\s*[^,\n]+)*)/i);
-        if (match) {
-          var extras = match[1].split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          var existing = (server.tool_names || []).map(function(t) { return t.toLowerCase(); });
-          extras.forEach(function(t) {
-            if (existing.indexOf(t.toLowerCase()) < 0) {
-              toolEntries.push({
-                tool: t,
-                serverName: server.name || '',
-                serverUrl: server.server_url || '',
-                up: server.up,
-                uptime_30d: server.uptime_30d || 0,
-                curlSnippet: server.curl_snippet || ''
-              });
-            }
-          });
-        }
-      });
-
-      // Filter by search
-      var q = currentQuery.toLowerCase();
-      if (q) {
-        toolEntries = toolEntries.filter(function(entry) {
-          return entry.tool.toLowerCase().indexOf(q) >= 0 || entry.serverName.toLowerCase().indexOf(q) >= 0;
+      // Filter by TruCore special selection
+      if (currentCapability === '__trucore__') {
+        tools = tools.filter(function(t) {
+          return (t.source === 'TruCore') || /trucore/i.test(t.owner_contact || '');
         });
       }
 
-      // Sort alphabetically
-      toolEntries.sort(function(a, b) {
-        return a.tool.localeCompare(b.tool);
+      // Filter by trust tier
+      if (currentTrustTier) {
+        tools = tools.filter(function(t) {
+          return (t.trust_tier || '') === currentTrustTier;
+        });
+      }
+
+      // Sort: verified first, then by trust score desc, then name
+      var tierRank = { verified: 0, trusted: 1, provisional: 2, untrusted: 3 };
+      tools.sort(function(a, b) {
+        var ra = tierRank[a.trust_tier] != null ? tierRank[a.trust_tier] : 9;
+        var rb = tierRank[b.trust_tier] != null ? tierRank[b.trust_tier] : 9;
+        if (ra !== rb) return ra - rb;
+        var sa = Number(b.trust_score || 0) - Number(a.trust_score || 0);
+        if (sa !== 0) return sa;
+        return (a.name || '').localeCompare(b.name || '');
       });
 
-      // Deduplicate by tool+server
-      var seen = {};
-      toolEntries = toolEntries.filter(function(entry) {
-        var key = entry.tool + '|||' + entry.serverName;
-        if (seen[key]) return false;
-        seen[key] = true;
-        return true;
-      });
-
-      renderToolCards(toolEntries);
-      resultsText.textContent = 'Showing ' + toolEntries.length + ' tools across ' + allServers.length + ' servers';
+      renderToolCards(tools);
+      resultsText.textContent = 'Showing ' + tools.length + ' tools' +
+        (currentCapability ? ' with capability "' + esc(currentCapability === '__trucore__' ? 'TruCore' : currentCapability) + '"' : '') +
+        (currentTrustTier ? ' · ' + currentTrustTier : '');
       loadMoreWrap.style.display = 'none';
     } catch(e) {
       cardGrid.innerHTML = '<div class="tool-empty">Could not load tools. Registry may be unreachable.</div>';
@@ -1452,6 +1504,8 @@
     if (entries.length === 0) {
       var msg = 'No tools found';
       if (currentQuery) msg += ' matching "' + esc(currentQuery) + '"';
+      if (currentCapability) msg += ' with capability "' + esc(currentCapability) + '"';
+      if (currentTrustTier) msg += ' with trust tier "' + esc(currentTrustTier) + '"';
       cardGrid.innerHTML = '<div class="tool-empty">' + msg + '.</div>';
       return;
     }
@@ -1461,11 +1515,24 @@
       var uptime = Number(entry.uptime_30d || 0);
       var uptimeLabel = Number.isFinite(uptime) ? (uptime * 100).toFixed(1) + '%' : 'n/a';
       var upClass = entry.up ? 'up' : 'down';
-      var curlSnippet = entry.curlSnippet || '';
+      var curlSnippet = entry.curl_snippet || '';
+
+      // Trust badge
+      var tier = entry.trust_tier || '';
+      var score = entry.trust_score;
+      var trustHTML = '';
+      if (tier) {
+        var label = tier.charAt(0).toUpperCase() + tier.slice(1);
+        var title = 'Trust ' + (score != null ? score : '') + '/100';
+        trustHTML = '<span class="trust-badge ' + esc(tier) + '" title="' + title + '">' +
+          (tier === 'verified' ? '✓ ' : '') + esc(label) +
+          '<span class="trust-score">' + (score != null ? score : '') + '</span></span>';
+      }
 
       html += '<div class="tool-card">';
-      html += '<div class="tool-name">' + esc(entry.tool) + '</div>';
-      html += '<div class="tool-server">on ' + esc(entry.serverName) + '</div>';
+      html += '<div class="tool-name">' + esc(entry.name) + '</div>';
+      html += '<div class="tool-server">on ' + esc(entry.server_name || '') + '</div>';
+      html += '<div class="card-meta" style="margin:6px 0;">' + trustHTML + '</div>';
       html += '<div class="tool-footer">';
       html += '<span class="tool-uptime ' + upClass + '">⬤ ' + (entry.up ? 'UP' : 'DOWN') + ' · ' + uptimeLabel + '</span>';
       if (curlSnippet) {
@@ -1496,49 +1563,10 @@
     }
   }
 
-  // --- RESOLVE DEMO ---
-  var resolveButton = document.getElementById('resolve-button');
-  var capabilityInput = document.getElementById('capability-input');
-  var resolveOutput = document.getElementById('resolve-output');
-
-  async function resolveCapability() {
-    var cap = capabilityInput.value.trim();
-    if (!cap) {
-      resolveOutput.innerHTML = '<div class="resolve-empty">Please enter a capability name.</div>';
-      return;
-    }
-    resolveOutput.innerHTML = '<div class="resolve-empty">Resolving...</div>';
-    try {
-      var data = await fetchJSON('/v0/resolve?capability=' + encodeURIComponent(cap));
-      if (!data || !data.length) {
-        resolveOutput.innerHTML = '<div class="resolve-empty">No servers found for <strong>"' + esc(cap) + '"</strong>. Try a different capability.</div>';
-        return;
-      }
-      resolveOutput.innerHTML = data.map(function(s, i) {
-        var up = s.up;
-        var uptime = Number(s.uptime_30d || 0);
-        var cls = up ? 'resolve-item' : 'resolve-item r-down';
-        return '<div class="' + cls + '">' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div class="r-name">' + (i+1) + '. ' + esc(s.name) + '</div>' +
-            '<div class="r-url">' + esc(s.server_url) + '</div>' +
-          '</div>' +
-          '<div class="r-uptime">' + (uptime * 100).toFixed(1) + '%</div>' +
-        '</div>';
-      }).join('');
-    } catch(e) {
-      resolveOutput.innerHTML = '<div class="resolve-empty">Registry unreachable. Try again in a moment.</div>';
-    }
-  }
-
-  resolveButton.addEventListener('click', resolveCapability);
-  capabilityInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') resolveCapability();
-  });
-
   // --- INIT ---
   async function init() {
     wireCopyButtons();
+    renderTrustPills();
     await Promise.all([refreshStats(), refreshCapabilities()]);
     if (currentMode === 'servers') {
       await loadServers(true);

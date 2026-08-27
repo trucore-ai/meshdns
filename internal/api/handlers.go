@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"regexp"
 	"sort"
@@ -82,6 +83,12 @@ type ServerWithState struct {
 	ToolCount   int      `json:"tool_count,omitempty"`
 	ToolNames   []string `json:"tool_names,omitempty"`
 	CurlSnippet string   `json:"curl_snippet,omitempty"`
+	AvgLatencyMs int     `json:"avg_latency_ms,omitempty"`
+	TrustScore  float64  `json:"trust_score,omitempty"`
+	TrustTier   string   `json:"trust_tier,omitempty"`
+	Verified    bool     `json:"verified,omitempty"`
+	OutcomeCount int     `json:"outcome_count,omitempty"`
+	OutcomeRate  float64 `json:"outcome_success_rate,omitempty"`
 }
 
 // --- Validation ---
@@ -189,6 +196,78 @@ func computeCurlSnippet(serverURL string) string {
 		serverURL)
 }
 
+// computeTrust derives a 0-100 trust score and tier from live state.
+//
+// Model (documented so agents can reason about it):
+//   - Reliability (0-55): 30-day uptime ratio * 55
+//   - Latency (0-20): 0ms -> 20 pts, >=1500ms -> 0; unknown -> neutral 10
+//   - Provenance (0-20): known catalogs (MCP Registry/Smithery/npm) -> 20, other named source -> 15, manual -> 5
+//   - Richness (0-5): discoverable tool_count > 0 -> 5
+//
+// First-party TruCore servers are fully verified (100). A currently-DOWN server
+// is capped at 40 regardless of history.
+// `source` is the resolved provenance label (already passed through computeSource).
+func computeTrust(sws store.ServerWithState, source string) (float64, string, bool) {
+	if source == "TruCore" {
+		return 100.0, "verified", true
+	}
+
+	score := sws.Uptime30d * 55
+
+	if sws.AvgLatencyMs > 0 {
+		lat := 1.0 - float64(sws.AvgLatencyMs)/1500.0
+		if lat < 0 {
+			lat = 0
+		}
+		score += lat * 20
+	} else {
+		score += 10
+	}
+
+	src := strings.ToLower(source)
+	switch {
+	case strings.Contains(src, "mcp registry"), strings.Contains(src, "smithery"), strings.Contains(src, "npm"):
+		score += 20
+	case src != "" && src != "manual" && src != "custom":
+		score += 15
+	default:
+		score += 5
+	}
+
+	if sws.ToolCount > 0 {
+		score += 5
+	}
+
+	// Outcome verification (the trust moat): agent-reported "did it work?"
+	// results. Requires >= 3 reports to be statistically meaningful; a perfect
+	// success rate adds up to +5 (total is capped at 100 below).
+	if sws.OutcomeCount >= 3 {
+		score += sws.OutcomeRate * 5
+	}
+
+	if sws.Up == 0 && score > 40 {
+		score = 40
+	}
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	score = math.Round(score*10) / 10
+
+	switch {
+	case score >= 85:
+		return score, "verified", true
+	case score >= 70:
+		return score, "trusted", false
+	case score >= 50:
+		return score, "provisional", false
+	default:
+		return score, "untrusted", false
+	}
+}
+
 func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 	source, sourceURL := computeSource(sws)
 	if sws.Source != "" {
@@ -199,6 +278,7 @@ func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 		toolCount = sws.ToolCount
 	}
 	curlSnippet := computeCurlSnippet(sws.ServerURL)
+	trustScore, trustTier, verified := computeTrust(sws, source)
 	return ServerWithState{
 		ID:            sws.ID,
 		Name:          sws.Name,
@@ -220,6 +300,12 @@ func storeServerWithStateToAPI(sws store.ServerWithState) ServerWithState {
 		ToolCount:     toolCount,
 		ToolNames:     toolNames,
 		CurlSnippet:   curlSnippet,
+		AvgLatencyMs:  sws.AvgLatencyMs,
+		TrustScore:    trustScore,
+		TrustTier:     trustTier,
+		Verified:      verified,
+		OutcomeCount:  sws.OutcomeCount,
+		OutcomeRate:   sws.OutcomeRate,
 	}
 }
 
@@ -352,6 +438,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 			result.LastCheckedAt = sws.LastCheckedAt
 			result.Source = sws.Source
 			result.ToolCount = sws.ToolCount
+			result.AvgLatencyMs = sws.AvgLatencyMs
 			break
 		}
 	}
@@ -366,6 +453,13 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	if result.ToolCount == 0 {
 		result.ToolNames, result.ToolCount = computeToolInfo(result.Description)
 	}
+	result.CurlSnippet = computeCurlSnippet(result.ServerURL)
+	result.TrustScore, result.TrustTier, result.Verified = computeTrust(store.ServerWithState{
+		Up:           result.Up,
+		Uptime30d:    result.Uptime30d,
+		AvgLatencyMs: result.AvgLatencyMs,
+		ToolCount:    result.ToolCount,
+	}, result.Source)
 
 	if result.Capabilities == nil {
 		result.Capabilities = []string{}
@@ -546,7 +640,19 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "db_error", "failed to export registry")
 		return
 	}
-	writeJSON(w, 200, export)
+	// Run every server through the API conversion so computed fields
+	// (source, auth, tool_names, curl_snippet, trust_score, trust_tier) are present.
+	converted := make([]ServerWithState, len(export.Servers))
+	for i, sws := range export.Servers {
+		converted[i] = storeServerWithStateToAPI(sws)
+	}
+	if converted == nil {
+		converted = []ServerWithState{}
+	}
+	writeJSON(w, 200, map[string]any{
+		"exported_at": export.ExportedAt,
+		"servers":     converted,
+	})
 }
 
 // GET /v0/stats — registry statistics
@@ -559,6 +665,43 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, stats)
 }
 
+// OutcomeReportRequest is the JSON body for POST /v0/outcomes.
+type OutcomeReportRequest struct {
+	ServerID string `json:"server_id"`
+	Success  bool   `json:"success"`
+	Rating   int    `json:"rating"`
+	Reporter string `json:"reporter"`
+}
+
+// POST /v0/outcomes — record an agent-reported outcome ("did it work?").
+// This is the trust moat: requester-verified success signals that feed the
+// outcome-verification term in computeTrust.
+func (s *Server) handleReportOutcome(w http.ResponseWriter, r *http.Request) {
+	var req OutcomeReportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, 422, "invalid_json", "could not parse request body")
+		return
+	}
+	if req.ServerID == "" {
+		writeError(w, 422, "validation_error", "server_id is required")
+		return
+	}
+	if req.Rating < 0 || req.Rating > 5 {
+		writeError(w, 422, "validation_error", "rating must be 0-5")
+		return
+	}
+	if _, err := s.Store.GetServer(req.ServerID); err != nil {
+		writeError(w, 404, "not_found", "server not found")
+		return
+	}
+	if err := s.Store.RecordOutcome(req.ServerID, req.Success, req.Rating, req.Reporter); err != nil {
+		writeError(w, 500, "db_error", "failed to record outcome")
+		return
+	}
+	stats, _ := s.Store.GetOutcomeStats(req.ServerID)
+	writeJSON(w, 201, map[string]any{"status": "recorded", "outcome": stats})
+}
+
 // --- Tool / capabilities endpoints ---
 
 type toolEntry struct {
@@ -569,12 +712,19 @@ type toolEntry struct {
 	Uptime30d    float64  `json:"uptime_30d"`
 	Up           int      `json:"up"`
 	Capabilities []string `json:"capabilities"`
+	Source       string   `json:"source,omitempty"`
+	OwnerContact string   `json:"owner_contact,omitempty"`
+	TrustScore   float64  `json:"trust_score,omitempty"`
+	TrustTier    string   `json:"trust_tier,omitempty"`
+	Verified     bool     `json:"verified,omitempty"`
 	CurlSnippet  string   `json:"curl_snippet"`
 }
 
-// GET /v0/tools — list tools extracted from server descriptions
+// GET /v0/tools — list tools extracted from server descriptions.
+// Supports ?query=, ?capability=, and ?limit= filters.
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	capability := strings.TrimSpace(r.URL.Query().Get("capability"))
 	limitStr := r.URL.Query().Get("limit")
 	limit := 50
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
@@ -584,7 +734,8 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	servers, _, err := s.Store.ListServers(query, "", "active", "", 0)
+	// Fetch all active servers; filter by capability in SQL when provided.
+	servers, _, err := s.Store.ListServers(query, capability, "active", "", 0)
 	if err != nil {
 		writeError(w, 500, "db_error", "failed to list servers")
 		return
@@ -619,6 +770,12 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 			capCopy := make([]string, len(server.Capabilities))
 			copy(capCopy, server.Capabilities)
 
+			serverSource, _ := computeSource(server)
+			if server.Source != "" {
+				serverSource = server.Source
+			}
+			trustScore, trustTier, verified := computeTrust(server, serverSource)
+
 			tools = append(tools, toolWithServer{
 				tool: name,
 				entry: toolEntry{
@@ -629,6 +786,11 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 					Uptime30d:    server.Uptime30d,
 					Up:           server.Up,
 					Capabilities: capCopy,
+					Source:       serverSource,
+					OwnerContact: server.OwnerContact,
+					TrustScore:   trustScore,
+					TrustTier:    trustTier,
+					Verified:     verified,
 					CurlSnippet:  curl,
 				},
 			})

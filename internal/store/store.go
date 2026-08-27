@@ -35,6 +35,9 @@ type ServerWithState struct {
 	Up            int      `json:"up"`
 	Uptime30d     float64  `json:"uptime_30d"`
 	LastCheckedAt string   `json:"last_checked_at,omitempty"`
+	AvgLatencyMs  int      `json:"avg_latency_ms,omitempty"`
+	OutcomeCount  int      `json:"outcome_count,omitempty"`
+	OutcomeRate   float64  `json:"outcome_success_rate,omitempty"`
 	OwnerContact  string   `json:"owner_contact,omitempty"`
 	ProbeMethod   string   `json:"probe_method,omitempty"`
 	Source        string   `json:"source,omitempty"`
@@ -137,6 +140,16 @@ func (s *Store) migrate() error {
 		payload TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_events_type_ts ON events(type, ts);
+	CREATE TABLE IF NOT EXISTS outcomes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		server_id TEXT NOT NULL,
+		ts TEXT NOT NULL,
+		success INTEGER NOT NULL DEFAULT 0,
+		rating INTEGER NOT NULL DEFAULT 0,
+		reporter TEXT NOT NULL DEFAULT '',
+		FOREIGN KEY (server_id) REFERENCES servers(id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_outcomes_server_ts ON outcomes(server_id, ts);
 	`
 	if _, err := s.db.Exec(schema); err != nil {
 		return err
@@ -316,8 +329,12 @@ func (s *Store) VerifyWriteKey(id, writeKeyHash string) bool {
 // ListServers returns paginated server results with optional filters.
 // status: "active", "delisted", "all"
 func (s *Store) ListServers(query, capability, status, cursor string, limit int) ([]ServerWithState, string, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 20
+	// limit <= 0 means "no limit" (internal bulk callers: export, probe dispatch, tools).
+	// Positive limits are capped at 100 (API pagination safety).
+	if limit <= 0 {
+		limit = 1000000
+	} else if limit > 100 {
+		limit = 100
 	}
 
 	where := "WHERE 1=1"
@@ -346,7 +363,10 @@ func (s *Store) ListServers(query, capability, status, cursor string, limit int)
 		s.status, s.owner_contact, s.probe_method,
 		COALESCE(s.source, ''), COALESCE(s.tool_count, 0),
 		s.created_at, s.updated_at,
-		COALESCE(ss.up, 0), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, '')
+		COALESCE(ss.up, 0), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, ''),
+		COALESCE(CAST((SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM probes WHERE server_id = s.id AND latency_ms > 0 ORDER BY ts DESC LIMIT 20)) AS INTEGER), 0),
+		COALESCE((SELECT COUNT(*) FROM outcomes o WHERE o.server_id = s.id), 0),
+		COALESCE((SELECT AVG(success) FROM outcomes o WHERE o.server_id = s.id), 0)
 		FROM servers s
 		LEFT JOIN server_state ss ON ss.server_id = s.id ` +
 		where +
@@ -367,7 +387,8 @@ func (s *Store) ListServers(query, capability, status, cursor string, limit int)
 			&sws.Status, &sws.OwnerContact, &sws.ProbeMethod,
 			&sws.Source, &sws.ToolCount,
 			&sws.CreatedAt, &sws.UpdatedAt,
-			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt); err != nil {
+			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt, &sws.AvgLatencyMs,
+			&sws.OutcomeCount, &sws.OutcomeRate); err != nil {
 			return nil, "", err
 		}
 		results = append(results, sws)
@@ -482,8 +503,11 @@ func (s *Store) GetUpServersByCapability(capability string) ([]ServerWithState, 
 			s.status, s.owner_contact, s.probe_method,
 			COALESCE(s.source, ''), COALESCE(s.tool_count, 0),
 			s.created_at, s.updated_at,
-			COALESCE(ss.up, 1), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, '')
-		FROM servers s
+			COALESCE(ss.up, 1), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, ''),
+			COALESCE(CAST((SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM probes WHERE server_id = s.id AND latency_ms > 0 ORDER BY ts DESC LIMIT 20)) AS INTEGER), 0),
+			COALESCE((SELECT COUNT(*) FROM outcomes o WHERE o.server_id = s.id), 0),
+			COALESCE((SELECT AVG(success) FROM outcomes o WHERE o.server_id = s.id), 0)
+			FROM servers s
 		JOIN capabilities c ON c.server_id = s.id
 		LEFT JOIN server_state ss ON ss.server_id = s.id
 		WHERE s.status = 'active'
@@ -504,7 +528,8 @@ func (s *Store) GetUpServersByCapability(capability string) ([]ServerWithState, 
 			&sws.Status, &sws.OwnerContact, &sws.ProbeMethod,
 			&sws.Source, &sws.ToolCount,
 			&sws.CreatedAt, &sws.UpdatedAt,
-			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt); err != nil {
+			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt, &sws.AvgLatencyMs,
+			&sws.OutcomeCount, &sws.OutcomeRate); err != nil {
 			return nil, err
 		}
 		results = append(results, sws)
@@ -555,9 +580,42 @@ func (s *Store) CountEventsSince(eventType, since string) (int, error) {
 	return count, err
 }
 
+// OutcomeStats aggregates outcome reports for a server (the trust moat).
+type OutcomeStats struct {
+	Count       int     `json:"count"`
+	SuccessRate float64 `json:"success_rate"`
+	AvgRating   float64 `json:"avg_rating"`
+}
+
+// RecordOutcome stores an agent-reported outcome ("did it work?") for a server.
+func (s *Store) RecordOutcome(serverID string, success bool, rating int, reporter string) error {
+	succ := 0
+	if success {
+		succ = 1
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO outcomes (server_id, ts, success, rating, reporter) VALUES (?, ?, ?, ?, ?)`,
+		serverID, time.Now().UTC().Format(time.RFC3339), succ, rating, reporter,
+	)
+	return err
+}
+
+// GetOutcomeStats returns aggregate outcome stats for a server.
+func (s *Store) GetOutcomeStats(serverID string) (OutcomeStats, error) {
+	var stats OutcomeStats
+	err := s.db.QueryRow(
+		`SELECT COUNT(*), COALESCE(AVG(success), 0), COALESCE(AVG(rating), 0) FROM outcomes WHERE server_id = ?`,
+		serverID,
+	).Scan(&stats.Count, &stats.SuccessRate, &stats.AvgRating)
+	if err != nil {
+		return stats, err
+	}
+	return stats, nil
+}
+
 // ExportAll returns all servers with full state (for /v0/export).
 func (s *Store) ExportAll() (*Export, error) {
-	servers, _, err := s.ListServers("", "", "all", "", 100000)
+	servers, _, err := s.ListServers("", "", "all", "", 0)
 	if err != nil {
 		return nil, err
 	}

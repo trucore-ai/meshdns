@@ -85,7 +85,7 @@ const mcpInitializeBody = `{"jsonrpc":"2.0","id":1,"method":"initialize","params
 
 // dispatchProbes fetches all active servers with health_urls and enqueues probe jobs.
 func dispatchProbes(s *store.Store, jobs chan<- probeJob) {
-	servers, _, err := s.ListServers("", "", "active", "", 10000)
+	servers, _, err := s.ListServers("", "", "active", "", 0)
 	if err != nil {
 		logger.Error("failed to list servers for probing", "error", err)
 		return
