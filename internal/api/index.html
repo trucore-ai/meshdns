@@ -729,26 +729,26 @@
       <div class="section-hdr">
         <div class="eyebrow">CLI Tool</div>
         <h2>ProvenGraph CLI</h2>
-        <p>Binary name <code style="font-family:var(--mono);color:var(--accent-2);">meshdns-cli</code>. Speaks <strong style="color:var(--accent-2);">--json</strong> for agents, human-readable for developers. Every error includes a <code style="font-family:var(--mono);color:var(--accent-2);">suggested_command</code> — copy-paste the fix.</p>
+        <p>Binary name <code style="font-family:var(--mono);color:var(--accent-2);">provengraph</code>. Speaks <strong style="color:var(--accent-2);">--json</strong> for agents, human-readable for developers. Every error includes a <code style="font-family:var(--mono);color:var(--accent-2);">suggested_command</code> — copy-paste the fix.</p>
       </div>
       <table class="cli-commands">
         <tbody>
-          <tr><td class="cmd">register</td><td class="what">Register a new MCP server</td><td><code class="example">meshdns-cli register --name my-server --server-url https://...</code><button class="cli-copy-btn" data-copy="meshdns-cli register --name my-server --server-url https://...">📋</button></td></tr>
-          <tr><td class="cmd">list</td><td class="what">List servers — filter by query, capability, status</td><td><code class="example">meshdns-cli list --capability web-search --json</code><button class="cli-copy-btn" data-copy="meshdns-cli list --capability web-search --json">📋</button></td></tr>
-          <tr><td class="cmd">resolve</td><td class="what">Find UP servers by capability, ranked by uptime</td><td><code class="example">meshdns-cli resolve weather</code><button class="cli-copy-btn" data-copy="meshdns-cli resolve weather">📋</button></td></tr>
-          <tr><td class="cmd">stats</td><td class="what">Live registry statistics</td><td><code class="example">meshdns-cli stats --json</code><button class="cli-copy-btn" data-copy="meshdns-cli stats --json">📋</button></td></tr>
-          <tr><td class="cmd">status</td><td class="what">Single server detail by name or ID</td><td><code class="example">meshdns-cli status my-server</code><button class="cli-copy-btn" data-copy="meshdns-cli status my-server">📋</button></td></tr>
-          <tr><td class="cmd">capabilities</td><td class="what">All capabilities with server counts</td><td><code class="example">meshdns-cli capabilities</code><button class="cli-copy-btn" data-copy="meshdns-cli capabilities">📋</button></td></tr>
-          <tr><td class="cmd">delist</td><td class="what">Soft-delete a server (requires write key)</td><td><code class="example">meshdns-cli delist my-server --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="meshdns-cli delist my-server --write-key <key>">📋</button></td></tr>
-          <tr><td class="cmd">doctor</td><td class="what">Health check — exits 0 if reachable</td><td><code class="example">meshdns-cli doctor</code><button class="cli-copy-btn" data-copy="meshdns-cli doctor">📋</button></td></tr>
+          <tr><td class="cmd">register</td><td class="what">Register a new MCP server</td><td><code class="example">provengraph register --name my-server --server-url https://...</code><button class="cli-copy-btn" data-copy="provengraph register --name my-server --server-url https://...">📋</button></td></tr>
+          <tr><td class="cmd">list</td><td class="what">List servers — filter by query, capability, status</td><td><code class="example">provengraph list --capability web-search --json</code><button class="cli-copy-btn" data-copy="provengraph list --capability web-search --json">📋</button></td></tr>
+          <tr><td class="cmd">resolve</td><td class="what">Find UP servers by capability, ranked by uptime</td><td><code class="example">provengraph resolve weather</code><button class="cli-copy-btn" data-copy="provengraph resolve weather">📋</button></td></tr>
+          <tr><td class="cmd">stats</td><td class="what">Live registry statistics</td><td><code class="example">provengraph stats --json</code><button class="cli-copy-btn" data-copy="provengraph stats --json">📋</button></td></tr>
+          <tr><td class="cmd">status</td><td class="what">Single server detail by name or ID</td><td><code class="example">provengraph status my-server</code><button class="cli-copy-btn" data-copy="provengraph status my-server">📋</button></td></tr>
+          <tr><td class="cmd">capabilities</td><td class="what">All capabilities with server counts</td><td><code class="example">provengraph capabilities</code><button class="cli-copy-btn" data-copy="provengraph capabilities">📋</button></td></tr>
+          <tr><td class="cmd">delist</td><td class="what">Soft-delete a server (requires write key)</td><td><code class="example">provengraph delist my-server --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="provengraph delist my-server --write-key <key>">📋</button></td></tr>
+          <tr><td class="cmd">doctor</td><td class="what">Health check — exits 0 if reachable</td><td><code class="example">provengraph doctor</code><button class="cli-copy-btn" data-copy="provengraph doctor">📋</button></td></tr>
         </tbody>
       </table>
       <div class="install-bar">
-        <code class="primary">go install github.com/trucore-ai/provengraph/cmd/meshdns-cli@latest</code>
-        <button class="cli-copy-btn" data-copy="go install github.com/trucore-ai/provengraph/cmd/meshdns-cli@latest">📋</button>
+        <code class="primary">go install github.com/trucore-ai/provengraph/cmd/provengraph@latest</code>
+        <button class="cli-copy-btn" data-copy="go install github.com/trucore-ai/provengraph/cmd/provengraph@latest">📋</button>
         <span style="color:var(--muted);font-size:12px;">or</span>
-        <code class="secondary">meshdns-cli --help</code>
-        <button class="cli-copy-btn" data-copy="meshdns-cli --help">📋</button>
+        <code class="secondary">provengraph --help</code>
+        <button class="cli-copy-btn" data-copy="provengraph --help">📋</button>
         <span style="color:var(--muted);font-size:12px;">after building from source</span>
       </div>
     </div>
@@ -774,8 +774,8 @@
         <div class="skill-cmd-wrap">
           <div class="micro-label">For Hermes Agents</div>
           <div class="skill-cmd-row">
-            <div class="skill-cmd">skill_view('meshdns-quickstart')</div>
-            <button class="copy-btn" data-copy="skill_view('meshdns-quickstart')">📋 Copy</button>
+            <div class="skill-cmd">skill_view('provengraph-quickstart')</div>
+            <button class="copy-btn" data-copy="skill_view('provengraph-quickstart')">📋 Copy</button>
           </div>
           <a class="skill-docs-link" href="/docs" target="_blank" rel="noopener">View docs →</a>
         </div>
@@ -794,8 +794,8 @@
         <div class="skill-cmd-wrap">
           <div class="micro-label">For Hermes Agents</div>
           <div class="skill-cmd-row">
-            <div class="skill-cmd">skill_view('meshdns')</div>
-            <button class="copy-btn" data-copy="skill_view('meshdns')">📋 Copy</button>
+            <div class="skill-cmd">skill_view('provengraph')</div>
+            <button class="copy-btn" data-copy="skill_view('provengraph')">📋 Copy</button>
           </div>
           <a class="skill-docs-link" href="/docs" target="_blank" rel="noopener">View docs →</a>
         </div>
@@ -814,8 +814,8 @@
         <div class="skill-cmd-wrap">
           <div class="micro-label">For Hermes Agents</div>
           <div class="skill-cmd-row">
-            <div class="skill-cmd">skill_view('meshdns-lazy-mcp')</div>
-            <button class="copy-btn" data-copy="skill_view('meshdns-lazy-mcp')">📋 Copy</button>
+            <div class="skill-cmd">skill_view('provengraph-lazy-mcp')</div>
+            <button class="copy-btn" data-copy="skill_view('provengraph-lazy-mcp')">📋 Copy</button>
           </div>
           <a class="skill-docs-link" href="/docs" target="_blank" rel="noopener">View docs →</a>
         </div>

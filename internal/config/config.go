@@ -18,11 +18,11 @@ type Config struct {
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
-		Port:          envStr("MESHDNS_PORT", ":8080"),
-		DBPath:        envStr("MESHDNS_DB", "meshdns.db"),
-		ProbeInterval: envDuration("MESHDNS_PROBE_INTERVAL", 60*time.Second),
-		ProbeTimeout:  envDuration("MESHDNS_PROBE_TIMEOUT", 5*time.Second),
-		Workers:       envInt("MESHDNS_WORKERS", 8),
+		Port:          envStr("PROVENGRAPH_PORT", ":8080"),
+		DBPath:        envStr("PROVENGRAPH_DB", "provengraph.db"),
+		ProbeInterval: envDuration("PROVENGRAPH_PROBE_INTERVAL", 60*time.Second),
+		ProbeTimeout:  envDuration("PROVENGRAPH_PROBE_TIMEOUT", 5*time.Second),
+		Workers:       envInt("PROVENGRAPH_WORKERS", 8),
 	}
 }
 

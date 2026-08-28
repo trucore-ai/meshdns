@@ -11,7 +11,7 @@ weighted by reporter reputation (the anti-gaming moat), freshness, and
 contradiction resolution.
 
 ## Install
-`go install github.com/trucore-ai/provengraph/cmd/meshdns@latest`
+`go install github.com/trucore-ai/provengraph/cmd/provengraph@latest`
 
 ## API
 - `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default), `POST` for streamable-HTTP MCP endpoints, or omit for auto-detect — ProvenGraph auto-detects POST-only at runtime (see Health Checks).

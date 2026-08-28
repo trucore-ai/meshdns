@@ -22,7 +22,7 @@ const goBinPath = resolvePath(REPO_ROOT, "meshdns-test-server");
 
 async function buildGoBinary(): Promise<boolean> {
   return new Promise((resolve) => {
-    const proc = spawn("go", ["build", "-o", goBinPath, "./cmd/meshdns"], {
+    const proc = spawn("go", ["build", "-o", goBinPath, "./cmd/provengraph"], {
       cwd: REPO_ROOT,
       stdio: "pipe",
     });
@@ -108,9 +108,9 @@ beforeAll(async () => {
     cwd: REPO_ROOT,
     env: {
       PATH: process.env.PATH ?? "",
-      MESHDNS_PORT: `:${port}`,
-      MESHDNS_DB: dbPath,
-      MESHDNS_PROBE_INTERVAL: "24h",
+      PROVENGRAPH_PORT: `:${port}`,
+      PROVENGRAPH_DB: dbPath,
+      PROVENGRAPH_PROBE_INTERVAL: "24h",
     },
     stdio: "pipe",
   });

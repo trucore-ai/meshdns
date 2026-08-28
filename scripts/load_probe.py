@@ -31,10 +31,10 @@ NUM_REQUESTS = 500
 
 
 def build_binary():
-    """go build -o meshdns ./cmd/meshdns"""
+    """go build -o provengraph ./cmd/provengraph"""
     print(f"Building meshdns binary...", flush=True)
     result = subprocess.run(
-        ["go", "build", "-o", BINARY, "./cmd/meshdns"],
+        ["go", "build", "-o", BINARY, "./cmd/provengraph"],
         cwd=REPO_DIR,
         capture_output=True,
         text=True,
@@ -144,9 +144,9 @@ def start_server():
     print(f"Starting meshdns on :{PORT}...", flush=True)
 
     env = os.environ.copy()
-    env["MESHDNS_DB"] = DB_PATH
-    env["MESHDNS_PORT"] = f":{PORT}"
-    env["MESHDNS_PROBE_INTERVAL"] = "999s"
+    env["PROVENGRAPH_DB"] = DB_PATH
+    env["PROVENGRAPH_PORT"] = f":{PORT}"
+    env["PROVENGRAPH_PROBE_INTERVAL"] = "999s"
 
     proc = subprocess.Popen(
         [BINARY],

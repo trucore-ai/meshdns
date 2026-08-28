@@ -373,7 +373,7 @@ console.log(servers.map(s => s.name));</code></pre>
           <li><code>provengraph</code> — full API reference, architecture, trust scoring, deployment</li>
           <li><code>provengraph-lazy-mcp</code> — on-the-fly MCP discovery, 3,900+ servers, zero pre-config</li>
         </ul>
-        <p style="color:var(--muted);font-size:12px;">Load with: <code>skill_view('meshdns-quickstart')</code> (skill IDs are stable; display names are Provengraph)</p>
+        <p style="color:var(--muted);font-size:12px;">Load with: <code>skill_view('provengraph-quickstart')</code></p>
       </div>
     </div>
 
@@ -390,17 +390,17 @@ docker run -d -p 8080:8080 -v ./data:/data provengraph</code></pre>
       </div>
       <div class="info-card">
         <h3>Configuration</h3>
-        <pre style="font-size:11px;line-height:1.7;"><code>MESHDNS_PORT=:8080
-MESHDNS_DB=/data/meshdns.db
-MESHDNS_PROBE_INTERVAL=60s
-MESHDNS_PROBE_TIMEOUT=5s
-MESHDNS_WORKERS=10</code></pre>
+        <pre style="font-size:11px;line-height:1.7;"><code>PROVENGRAPH_PORT=:8080
+PROVENGRAPH_DB=/data/provengraph.db
+PROVENGRAPH_PROBE_INTERVAL=60s
+PROVENGRAPH_PROBE_TIMEOUT=5s
+PROVENGRAPH_WORKERS=8</code></pre>
       </div>
       <div class="info-card">
         <h3>Systemd</h3>
         <pre style="font-size:11px;line-height:1.7;"><code>[Service]
-ExecStart=/usr/local/bin/meshdns
-WorkingDirectory=/var/lib/meshdns
+ExecStart=/usr/local/bin/provengraph serve
+WorkingDirectory=/var/lib/provengraph
 Restart=always
 RestartSec=5</code></pre>
       </div>

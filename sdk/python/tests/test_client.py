@@ -35,7 +35,7 @@ def _build_binary() -> str | None:
         return None
     try:
         subprocess.run(
-            ["go", "build", "-o", dest, "./cmd/meshdns"],
+            ["go", "build", "-o", dest, "./cmd/provengraph"],
             cwd=SRC_DIR,
             check=True,
             capture_output=True,
@@ -72,8 +72,8 @@ def meshdns_url(meshdns_binary):
     db_path = os.path.join(tempfile.gettempdir(), f"meshdns-test-{port}.db")
 
     env = os.environ.copy()
-    env["MESHDNS_PORT"] = f":{port}"
-    env["MESHDNS_DB"] = db_path
+    env["PROVENGRAPH_PORT"] = f":{port}"
+    env["PROVENGRAPH_DB"] = db_path
 
     proc = subprocess.Popen(
         [meshdns_binary],

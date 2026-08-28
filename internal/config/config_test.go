@@ -27,11 +27,11 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnv(t *testing.T) {
-	os.Setenv("MESHDNS_PORT", ":9090")
-	os.Setenv("MESHDNS_DB", "/tmp/test.db")
-	os.Setenv("MESHDNS_PROBE_INTERVAL", "30s")
-	os.Setenv("MESHDNS_PROBE_TIMEOUT", "3s")
-	os.Setenv("MESHDNS_WORKERS", "4")
+	os.Setenv("PROVENGRAPH_PORT", ":9090")
+	os.Setenv("PROVENGRAPH_DB", "/tmp/test.db")
+	os.Setenv("PROVENGRAPH_PROBE_INTERVAL", "30s")
+	os.Setenv("PROVENGRAPH_PROBE_TIMEOUT", "3s")
+	os.Setenv("PROVENGRAPH_WORKERS", "4")
 	defer os.Clearenv()
 
 	cfg := Load()
@@ -53,7 +53,7 @@ func TestLoadFromEnv(t *testing.T) {
 }
 
 func TestLoadInvalidDuration(t *testing.T) {
-	os.Setenv("MESHDNS_PROBE_INTERVAL", "bad")
+	os.Setenv("PROVENGRAPH_PROBE_INTERVAL", "bad")
 	defer os.Clearenv()
 	cfg := Load()
 	if cfg.ProbeInterval != 60*time.Second {

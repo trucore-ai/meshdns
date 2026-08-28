@@ -28,7 +28,7 @@ var logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level:
 
 func main() {
 	root := &cobra.Command{
-		Use:   "meshdns",
+		Use:   "provengraph",
 		Short: "ProvenGraph Trust — the provenance graph for the agent economy",
 		Long:  "ProvenGraph Trust CLI: serve, doctor, setup, register, resolve, and provenance-sync.\n\nTrust scores for MCP servers, computed over a provenance graph.",
 	}
