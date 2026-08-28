@@ -17,11 +17,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/trucore-ai/meshdns/internal/api"
-	"github.com/trucore-ai/meshdns/internal/config"
-	"github.com/trucore-ai/meshdns/internal/graph"
-	"github.com/trucore-ai/meshdns/internal/health"
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/api"
+	"github.com/trucore-ai/provengraph/internal/config"
+	"github.com/trucore-ai/provengraph/internal/graph"
+	"github.com/trucore-ai/provengraph/internal/health"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trucore-ai/meshdns/internal/config"
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/config"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 func testServer(t *testing.T) *Server {

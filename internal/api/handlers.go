@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/trucore-ai/meshdns/internal/events"
-	"github.com/trucore-ai/meshdns/internal/graph"
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/events"
+	"github.com/trucore-ai/provengraph/internal/graph"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 // --- Embedded content ---

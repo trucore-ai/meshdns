@@ -1,4 +1,4 @@
-module github.com/trucore-ai/meshdns
+module github.com/trucore-ai/provengraph
 
 go 1.26.0
 

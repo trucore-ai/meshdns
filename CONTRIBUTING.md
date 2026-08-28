@@ -6,7 +6,7 @@ bug reports, feature ideas, and pull requests.
 ## Getting started
 
 ```bash
-git clone https://github.com/trucore-ai/meshdns.git
+git clone https://github.com/trucore-ai/provengraph.git
 cd meshdns
 go mod download
 ```
@@ -63,8 +63,8 @@ traceability where applicable:
 
 | What | Where |
 |------|-------|
-| Bugs | [Issues](https://github.com/trucore-ai/meshdns/issues) |
-| Ideas / feedback | [Discussions](https://github.com/trucore-ai/meshdns/discussions) |
+| Bugs | [Issues](https://github.com/trucore-ai/provengraph/issues) |
+| Ideas / feedback | [Discussions](https://github.com/trucore-ai/provengraph/discussions) |
 | Security vulns | See [SECURITY.md](SECURITY.md) |
 
 ## Code of Conduct

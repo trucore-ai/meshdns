@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 func TestLog_HashesSourceIP(t *testing.T) {

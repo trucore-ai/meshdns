@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/trucore-ai/meshdns/internal/config"
-	"github.com/trucore-ai/meshdns/internal/graph"
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/config"
+	"github.com/trucore-ai/provengraph/internal/graph"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))

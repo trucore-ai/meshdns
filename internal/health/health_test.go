@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trucore-ai/meshdns/internal/store"
+	"github.com/trucore-ai/provengraph/internal/store"
 )
 
 func TestProbe_UpServer(t *testing.T) {

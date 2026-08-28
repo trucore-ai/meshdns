@@ -1,6 +1,6 @@
 # meshdns-client
 
-Python client for [MeshDNS](https://github.com/trucore-ai/meshdns) — the distributed capability mesh.
+Python client for [MeshDNS](https://github.com/trucore-ai/provengraph) — the distributed capability mesh.
 
 ## Install
 

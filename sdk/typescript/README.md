@@ -1,6 +1,6 @@
 # @meshdns/client
 
-TypeScript client for [MeshDNS](https://github.com/trucore-ai/meshdns) — resolve mesh DNS servers by capability.
+TypeScript client for [MeshDNS](https://github.com/trucore-ai/provengraph) — resolve mesh DNS servers by capability.
 
 ## Quickstart
 

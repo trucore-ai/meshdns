@@ -11,7 +11,7 @@ weighted by reporter reputation (the anti-gaming moat), freshness, and
 contradiction resolution.
 
 ## Install
-`go install github.com/trucore-ai/meshdns/cmd/meshdns@latest`
+`go install github.com/trucore-ai/provengraph/cmd/meshdns@latest`
 
 ## API
 - `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default), `POST` for streamable-HTTP MCP endpoints, or omit for auto-detect — ProvenGraph auto-detects POST-only at runtime (see Health Checks).
@@ -41,5 +41,5 @@ The POST probe sends a valid MCP `initialize` request (`jsonrpc: "2.0"`, `method
 
 ## Docs
 - [Full Documentation](https://trucore.xyz/docs/provengraph): Architecture, Trust/Knowledge/Memory product lines, API reference, trust scoring model, health check model, FAQ.
-- [GitHub](https://github.com/trucore-ai/meshdns): Source code, issues, discussions.
-- [License](https://github.com/trucore-ai/meshdns/blob/main/LICENSE): MIT.
+- [GitHub](https://github.com/trucore-ai/provengraph): Source code, issues, discussions.
+- [License](https://github.com/trucore-ai/provengraph/blob/main/LICENSE): MIT.
