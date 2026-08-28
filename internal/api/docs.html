@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ProvenGraph — Documentation Hub</title>
+  <title>ProvenGraph - Documentation Hub</title>
   <style>
     :root {
       color-scheme: dark;
@@ -557,7 +557,7 @@
 
       <section id="intro" class="section-anchor">
         <h2>Introduction</h2>
-        <p>ProvenGraph is a provenance graph for the agent economy — three product lines on one graph engine. Trust scores MCP servers on reliability and reputation. Knowledge tracks verifiable claims with attestation-weighted scoring. Memory stores purpose-tagged, GDPR-ready agent memories with retention policies.</p>
+        <p>ProvenGraph is a provenance graph for the agent economy - three product lines on one graph engine. Trust scores MCP servers on reliability and reputation. Knowledge tracks verifiable claims with attestation-weighted scoring. Memory stores purpose-tagged, GDPR-ready agent memories with retention policies.</p>
       </section>
 
       <section id="pillars" class="section-anchor">
@@ -566,20 +566,20 @@
           <article id="trust" class="info-card section-anchor">
             <h3>Trust</h3>
             <p><strong>Description:</strong> Server registry with trust scores computed over a provenance graph. Who-do-I-trust, answered at runtime.</p>
-            <p><strong>Purpose:</strong> Eliminate hardcoded server URLs. Agents resolve capabilities against live, probed endpoints ranked by uptime and outcome-verified reputation. The moat: outcome reports are weighted by the reporter's own trust — a throwaway agent can't pump a score.</p>
+            <p><strong>Purpose:</strong> Eliminate hardcoded server URLs. Agents resolve capabilities against live, probed endpoints ranked by uptime and outcome-verified reputation. The moat: outcome reports are weighted by the reporter's own trust - a throwaway agent can't pump a score.</p>
             <p><strong>Instructions:</strong> Register a server via <code>POST /v0/servers</code>. Health checks run every 60s. Agents resolve with <code>GET /v0/resolve?capability=X</code>. Report outcomes via <code>POST /v0/outcomes</code>.</p>
           </article>
           <article id="knowledge" class="info-card section-anchor">
             <h3>Knowledge</h3>
             <p><strong>Description:</strong> Verifiable knowledge claims with provenance scoring. Attestations from trusted orgs raise the score; contradictions and supersession lower it.</p>
-            <p><strong>Purpose:</strong> Build a shared knowledge base where truth is not asserted — it's attested. Every claim carries provenance: who vouched, who contradicted, and whether it's been superseded by a newer version.</p>
+            <p><strong>Purpose:</strong> Build a shared knowledge base where truth is not asserted - it's attested. Every claim carries provenance: who vouched, who contradicted, and whether it's been superseded by a newer version.</p>
             <p><strong>Instructions:</strong> Create a claim via <code>POST /v0/knowledge</code>. Attest to claims with <code>POST /v0/knowledge/{id}/attest</code>. Contradict or supersede claims to build the debate graph. Query with <code>GET /v0/knowledge?domain=X</code>.</p>
           </article>
           <article id="memory" class="info-card section-anchor">
             <h3>Memory</h3>
-            <p><strong>Description:</strong> Purpose-tagged memory entires with compliance metadata — retention policies, consent tracking, and subject IDs. Built for the right-to-be-forgotten agent economy.</p>
+            <p><strong>Description:</strong> Purpose-tagged memory entires with compliance metadata - retention policies, consent tracking, and subject IDs. Built for the right-to-be-forgotten agent economy.</p>
             <p><strong>Purpose:</strong> Agents need memory that is searchable, auditable, and deletable. Every entry records why it exists (purpose), how long it lives (retention), and who it concerns (subject). Shared memory: multiple agents can remember the same entry.</p>
-            <p><strong>Instructions:</strong> Create via <code>POST /v0/memory</code>. Agents remember with <code>POST /v0/memory/{id}/remember</code>. Forget with <code>DELETE /v0/memory/{id}/forget?agent=X</code>. Hard delete with <code>DELETE /v0/memory/{id}</code> — this is the right to be forgotten.</p>
+            <p><strong>Instructions:</strong> Create via <code>POST /v0/memory</code>. Agents remember with <code>POST /v0/memory/{id}/remember</code>. Forget with <code>DELETE /v0/memory/{id}/forget?agent=X</code>. Hard delete with <code>DELETE /v0/memory/{id}</code> - this is the right to be forgotten.</p>
           </article>
         </div>
       </section>

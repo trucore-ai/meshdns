@@ -31,6 +31,9 @@ var landingPageHTML string
 //go:embed docs.html
 var docsPageHTML string
 
+//go:embed agents.txt
+var agentsTxtContent string
+
 // --- Request/Response types ---
 
 // RegisterRequest is the JSON body for POST /v0/servers.
@@ -79,7 +82,7 @@ type ServerWithState struct {
 	ProbeMethod   string   `json:"probe_method,omitempty"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
-	// Computed fields (derived from existing data — not stored in DB)
+	// Computed fields (derived from existing data  -  not stored in DB)
 	Source      string   `json:"source,omitempty"`
 	SourceURL   string   `json:"source_url,omitempty"`
 	Auth        string   `json:"auth,omitempty"`
@@ -273,10 +276,10 @@ func computeAuth(sws store.ServerWithState) string {
 	return "public"
 }
 
-// computeToolInfo extracts tool names and count from description (Smithery format: " — tools: name1, name2, ...")
+// computeToolInfo extracts tool names and count from description (Smithery format: "  -  tools: name1, name2, ...")
 func computeToolInfo(desc string) ([]string, int) {
-	if idx := strings.Index(desc, " — tools: "); idx >= 0 {
-		toolsStr := desc[idx+len(" — tools: "):]
+	if idx := strings.Index(desc, "  -  tools: "); idx >= 0 {
+		toolsStr := desc[idx+len("  -  tools: "):]
 		if end := strings.Index(toolsStr, " ["); end >= 0 {
 			toolsStr = toolsStr[:end]
 		}
@@ -339,7 +342,7 @@ func computeTrust(sws store.ServerWithState, source string) (float64, string, bo
 	}
 
 	// Cost transparency (0-3): a DISCLOSED cost (cost_per_call >= 0, i.e. not the
-	// -1 "undisclosed" sentinel) is a mild honesty signal — hidden costs are a
+	// -1 "undisclosed" sentinel) is a mild honesty signal  -  hidden costs are a
 	// surprise-billing risk at runtime. The magnitude of cost deliberately does
 	// NOT affect trust (expensive ≠ trustworthy); cost is surfaced for ranking,
 	// not scored.
@@ -498,7 +501,7 @@ func SyncAllToGraph(s *store.Store, g *graph.Graph) (int, error) {
 
 // syncOutcomeToGraph records an outcome report as an observed-by edge from the
 // reporter agent. The reporter's own trust (set separately) weights the outcome
-// — this is the anti-gaming moat.
+//  -  this is the anti-gaming moat.
 func (s *Server) syncOutcomeToGraph(serverID string, success bool, rating int, reporter string) {
 	if s.Graph == nil {
 		return
@@ -536,10 +539,17 @@ func (s *Server) handleLLMsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(llmsTxtContent))
 }
 
+// GET /agents.txt  -  agent surface manifest
+func (s *Server) handleAgentsTxt(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write([]byte(agentsTxtContent))
+}
+
 // GET /
 func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	// Don't serve the landing page for API paths
-	if strings.HasPrefix(r.URL.Path, "/v0/") || r.URL.Path == "/health" || r.URL.Path == "/llms.txt" || r.URL.Path == "/docs" {
+	if strings.HasPrefix(r.URL.Path, "/v0/") || r.URL.Path == "/health" || r.URL.Path == "/llms.txt" || r.URL.Path == "/docs" || r.URL.Path == "/agents.txt" {
 		writeError(w, 404, "not_found", "endpoint not found")
 		return
 	}
@@ -556,7 +566,7 @@ func (s *Server) handleDocs(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(docsPageHTML))
 }
 
-// POST /v0/servers — register a server
+// POST /v0/servers  -  register a server
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -634,7 +644,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, RegisterResponse{ServerID: serverID, WriteKey: writeKey})
 }
 
-// GET /v0/servers/{id} — get a single server by ID
+// GET /v0/servers/{id}  -  get a single server by ID
 func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	serverID := r.PathValue("id")
 
@@ -704,7 +714,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, result)
 }
 
-// PUT /v0/servers/{id} — update server manifest
+// PUT /v0/servers/{id}  -  update server manifest
 func (s *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	serverID := r.PathValue("id")
 	writeKey := extractWriteKey(r)
@@ -773,7 +783,7 @@ func (s *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "updated"})
 }
 
-// DELETE /v0/servers/{id} — delist a server
+// DELETE /v0/servers/{id}  -  delist a server
 func (s *Server) handleDelistServer(w http.ResponseWriter, r *http.Request) {
 	serverID := r.PathValue("id")
 
@@ -802,7 +812,7 @@ func (s *Server) handleDelistServer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "delisted"})
 }
 
-// GET /v0/resolve?capability=X — resolve capability
+// GET /v0/resolve?capability=X  -  resolve capability
 func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	capability := r.URL.Query().Get("capability")
 	if capability == "" {
@@ -835,7 +845,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, result)
 }
 
-// GET /v0/servers — list with filters and pagination
+// GET /v0/servers  -  list with filters and pagination
 func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("query")
 	capability := r.URL.Query().Get("capability")
@@ -876,7 +886,7 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /v0/export — full registry dump
+// GET /v0/export  -  full registry dump
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	export, err := s.Store.ExportAll()
 	if err != nil {
@@ -898,7 +908,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /v0/stats — registry statistics
+// GET /v0/stats  -  registry statistics
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := s.Store.GetStats()
 	if err != nil {
@@ -916,7 +926,7 @@ type OutcomeReportRequest struct {
 	Reporter string `json:"reporter"`
 }
 
-// POST /v0/outcomes — record an agent-reported outcome ("did it work?").
+// POST /v0/outcomes  -  record an agent-reported outcome ("did it work?").
 // This is the trust moat: requester-verified success signals that feed the
 // outcome-verification term in computeTrust.
 func (s *Server) handleReportOutcome(w http.ResponseWriter, r *http.Request) {
@@ -965,7 +975,7 @@ type toolEntry struct {
 	CurlSnippet  string   `json:"curl_snippet"`
 }
 
-// GET /v0/tools — list tools extracted from server descriptions.
+// GET /v0/tools  -  list tools extracted from server descriptions.
 // Supports ?query=, ?capability=, and ?limit= filters.
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
@@ -1058,7 +1068,7 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"tools": entries})
 }
 
-// GET /v0/capabilities — list all capabilities with active server counts
+// GET /v0/capabilities  -  list all capabilities with active server counts
 func (s *Server) handleListCapabilities(w http.ResponseWriter, r *http.Request) {
 	caps, err := s.Store.ListCapabilities()
 	if err != nil {
@@ -1122,7 +1132,7 @@ func boolOr(attrs map[string]any, key string, def bool) bool {
 	return def
 }
 
-// POST /v0/knowledge — create a knowledge claim
+// POST /v0/knowledge  -  create a knowledge claim
 func (s *Server) handleCreateClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1168,7 +1178,7 @@ func (s *Server) handleCreateClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, CreateClaimResponse{ClaimID: claimID, WriteKey: writeKey})
 }
 
-// GET /v0/knowledge/{id} — get a claim with provenance
+// GET /v0/knowledge/{id}  -  get a claim with provenance
 func (s *Server) handleGetClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1191,7 +1201,7 @@ func (s *Server) handleGetClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, resp)
 }
 
-// GET /v0/knowledge — list/search claims
+// GET /v0/knowledge  -  list/search claims
 func (s *Server) handleListClaims(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1227,7 +1237,7 @@ func (s *Server) handleListClaims(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"claims": claims})
 }
 
-// PUT /v0/knowledge/{id} — update a claim (requires write key)
+// PUT /v0/knowledge/{id}  -  update a claim (requires write key)
 func (s *Server) handleUpdateClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1273,7 +1283,7 @@ func (s *Server) handleUpdateClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, resp)
 }
 
-// POST /v0/knowledge/{id}/supersede — assert this claim supersedes another
+// POST /v0/knowledge/{id}/supersede  -  assert this claim supersedes another
 func (s *Server) handleSupersedeClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1319,7 +1329,7 @@ func (s *Server) handleSupersedeClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"status": "ok", "supersedes": req.SupersedesID})
 }
 
-// POST /v0/knowledge/{id}/contradict — assert this claim contradicts another
+// POST /v0/knowledge/{id}/contradict  -  assert this claim contradicts another
 func (s *Server) handleContradictClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1360,7 +1370,7 @@ func (s *Server) handleContradictClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"status": "ok", "contradicts": req.ContradictsID})
 }
 
-// POST /v0/knowledge/{id}/attest — attest to a claim
+// POST /v0/knowledge/{id}/attest  -  attest to a claim
 func (s *Server) handleAttestClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1394,7 +1404,7 @@ func (s *Server) handleAttestClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"status": "ok", "claim_id": id, "attested_by": req.Issuer})
 }
 
-// GET /v0/knowledge/{id}/provenance — claim provenance breakdown
+// GET /v0/knowledge/{id}/provenance  -  claim provenance breakdown
 func (s *Server) handleClaimProvenance(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1416,7 +1426,7 @@ func (s *Server) handleClaimProvenance(w http.ResponseWriter, r *http.Request) {
 
 // --- Memory entry handlers ---
 
-// POST /v0/memory — create a memory entry
+// POST /v0/memory  -  create a memory entry
 func (s *Server) handleCreateMemory(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1465,7 +1475,7 @@ func (s *Server) handleCreateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, CreateMemoryResponse{MemoryID: memoryID, WriteKey: writeKey})
 }
 
-// GET /v0/memory/{id} — get a memory entry
+// GET /v0/memory/{id}  -  get a memory entry
 func (s *Server) handleGetMemory(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1484,7 +1494,7 @@ func (s *Server) handleGetMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, memoryFromNode(*n))
 }
 
-// GET /v0/memory — list/search memories
+// GET /v0/memory  -  list/search memories
 func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1517,7 +1527,7 @@ func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"memories": memories})
 }
 
-// PUT /v0/memory/{id} — update a memory entry (requires write key)
+// PUT /v0/memory/{id}  -  update a memory entry (requires write key)
 func (s *Server) handleUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1564,7 +1574,7 @@ func (s *Server) handleUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, memoryFromNode(*n))
 }
 
-// DELETE /v0/memory/{id} — delete a memory entry (right to be forgotten)
+// DELETE /v0/memory/{id}  -  delete a memory entry (right to be forgotten)
 func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1585,7 +1595,7 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"status": "deleted", "id": id})
 }
 
-// POST /v0/memory/{id}/remember — agent remembers a memory entry
+// POST /v0/memory/{id}/remember  -  agent remembers a memory entry
 func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1616,7 +1626,7 @@ func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"status": "ok", "memory_id": id, "agent_id": req.AgentID})
 }
 
-// DELETE /v0/memory/{id}/forget — agent forgets a memory entry
+// DELETE /v0/memory/{id}/forget  -  agent forgets a memory entry
 func (s *Server) handleForget(w http.ResponseWriter, r *http.Request) {
 	if s.Graph == nil {
 		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
@@ -1677,9 +1687,9 @@ func extractToolNames(description string) []string {
 		}
 	}
 
-	// Pattern 1: Smithery " — tools: name1, name2 [...]"
-	if idx := strings.Index(description, " — tools: "); idx >= 0 {
-		rest := description[idx+len(" — tools: "):]
+	// Pattern 1: Smithery "  -  tools: name1, name2 [...]"
+	if idx := strings.Index(description, "  -  tools: "); idx >= 0 {
+		rest := description[idx+len("  -  tools: "):]
 		if end := strings.IndexByte(rest, '['); end >= 0 {
 			rest = rest[:end]
 		}
@@ -1714,6 +1724,124 @@ func extractToolNames(description string) []string {
 	}
 
 	return names
+}
+
+// GET /v0/agent-manifest  -  JSON agent surface manifest for programmatic discovery
+func (s *Server) handleAgentManifest(w http.ResponseWriter, r *http.Request) {
+	manifest := map[string]any{
+		"service":     "ProvenGraph",
+		"version":     "v0",
+		"base_url":    "https://provengraph.trucore.xyz",
+		"health":      "/health",
+		"docs_url":    "https://provengraph.trucore.xyz/docs",
+		"agents_txt":  "/agents.txt",
+		"source":      "https://github.com/trucore-ai/provengraph",
+		"license":     "MIT",
+		"auth": map[string]any{
+			"method":           "write_key",
+			"header":           "X-Write-Key or Authorization: Bearer",
+			"scope":            "per-resource",
+			"public_endpoints": "GET endpoints are unauthenticated",
+			"write_endpoints":  "POST/PUT/DELETE require write_key",
+		},
+		"pillars": map[string]any{
+			"trust": map[string]any{
+				"description": "MCP server registry with provenance-weighted trust scores",
+				"purpose":     "Eliminate hardcoded server URLs. Agents resolve capabilities against live, probed endpoints ranked by uptime and outcome-verified reputation.",
+				"endpoints": map[string]any{
+					"register":       "POST /v0/servers {name, server_url, capabilities, health_url?, probe_method?} -> {server_id, write_key}",
+					"resolve":        "GET /v0/resolve?capability=<name> -> [{server_id, name, server_url, uptime_30d, trust_score, trust_tier}]",
+					"report_outcome": "POST /v0/outcomes {server_id, success: bool, rating: 0-5, reporter}",
+					"list":           "GET /v0/servers?capability=X&query=Y&status=active",
+					"get":            "GET /v0/servers/{id}",
+					"update":         "PUT /v0/servers/{id} (write key required)",
+					"delist":         "DELETE /v0/servers/{id} (write key required)",
+					"stats":          "GET /v0/stats",
+					"export":         "GET /v0/export",
+					"capabilities":   "GET /v0/capabilities",
+					"tools":          "GET /v0/tools",
+				},
+				"trust_scoring": map[string]any{
+					"model":             "provenance_weighted",
+					"reliability":       "0-55 (30-day uptime)",
+					"latency":           "0-20 (response time)",
+					"provenance":        "0-25 (attester trust + outcome reputation)",
+					"outcome_moat":      true,
+					"moat_description":  "Reporter's own trust weights the outcome report  -  throwaway agents can't pump scores",
+					"tiers":             map[string]string{"verified": ">=85", "trusted": ">=70", "provisional": ">=50", "untrusted": "<50"},
+				},
+			},
+			"knowledge": map[string]any{
+				"description": "Verifiable knowledge claims with attestation-scored provenance",
+				"purpose":     "Build a shared knowledge base where truth is attested, not asserted. Every claim carries who vouched, who contradicted, and whether it's been superseded.",
+				"endpoints": map[string]any{
+					"create":      "POST /v0/knowledge {content, domain, issuer?} -> {claim_id, write_key}",
+					"get":         "GET /v0/knowledge/{id} -> claim with ClaimBreakdown",
+					"list":        "GET /v0/knowledge?domain=X&q=Y -> {claims: [...]}",
+					"update":      "PUT /v0/knowledge/{id} {content?, domain?, status?} (write key required)",
+					"supersede":   "POST /v0/knowledge/{id}/supersede {supersedes_id} (write key required)",
+					"contradict":  "POST /v0/knowledge/{id}/contradict {contradicts_id} (write key required)",
+					"attest":      "POST /v0/knowledge/{id}/attest {issuer} (no auth required)",
+					"provenance":  "GET /v0/knowledge/{id}/provenance -> ClaimBreakdown",
+				},
+				"claim_scoring": map[string]any{
+					"attestation_score":     "0-30 (attester trust * freshness, diminishing returns)",
+					"freshness_score":       "0-15 (average attestation freshness)",
+					"contradiction_penalty": "0-15 (3 pts per inbound contradict edge)",
+					"supersession_penalty":  "0-15 (binary: superseded or not)",
+					"total":                 "0-100",
+				},
+			},
+			"memory": map[string]any{
+				"description": "Purpose-tagged agent memory with compliance metadata and retention policies",
+				"purpose":     "Agents need searchable, auditable, deletable memory. Every entry records why it exists, how long it lives, who it concerns, and whether consent was obtained.",
+				"endpoints": map[string]any{
+					"create":   "POST /v0/memory {content, owner, category?, retention?, purpose?, subject?} -> {memory_id, write_key}",
+					"get":      "GET /v0/memory/{id}",
+					"list":     "GET /v0/memory?agent=X&category=Y&q=Z -> {memories: [...]}",
+					"update":   "PUT /v0/memory/{id} {content?, category?, retention?, purpose?} (write key required)",
+					"delete":   "DELETE /v0/memory/{id} (write key required)  -  right to be forgotten",
+					"remember": "POST /v0/memory/{id}/remember {agent_id}",
+					"forget":   "DELETE /v0/memory/{id}/forget?agent=X",
+				},
+				"compliance": map[string]any{
+					"retention":            []string{"permanent", "session", "30d", "1y"},
+					"categories":           []string{"fact", "preference", "interaction", "compliance_record"},
+					"consent_tracked":      true,
+					"purpose_required":     true,
+					"right_to_be_forgotten": "DELETE /v0/memory/{id}",
+				},
+			},
+		},
+		"sdks": map[string]any{
+			"python": map[string]any{
+				"install":           "pip install meshdns-client",
+				"import":            "from meshdns_client import MeshDNS",
+				"constructor":       "MeshDNS(base_url=\"https://provengraph.trucore.xyz\")",
+				"trust_methods":     []string{"resolve", "list_servers", "get_server", "register_server", "update_server", "delist_server", "report_outcome"},
+				"knowledge_methods": []string{"create_claim", "get_claim", "list_claims", "update_claim", "supersede_claim", "contradict_claim", "attest_claim"},
+				"memory_methods":    []string{"create_memory", "get_memory", "list_memories", "update_memory", "delete_memory", "remember", "forget"},
+			},
+			"typescript": map[string]any{
+				"install":           "npm i @meshdns/client",
+				"import":            "import { MeshDNS } from \"@meshdns/client\"",
+				"constructor":       "new MeshDNS(\"https://provengraph.trucore.xyz\")",
+				"trust_methods":     []string{"resolve", "listServers", "getServer", "registerServer", "updateServer", "delistServer", "reportOutcome"},
+				"knowledge_methods": []string{"createClaim", "getClaim", "listClaims", "updateClaim", "supersedeClaim", "contradictClaim", "attestClaim"},
+				"memory_methods":    []string{"createMemory", "getMemory", "listMemories", "updateMemory", "deleteMemory", "remember", "forget"},
+			},
+		},
+		"cli": map[string]any{
+			"binary":              "provengraph",
+			"install":             "go install github.com/trucore-ai/provengraph/cmd/provengraph@latest",
+			"global_flags":        []string{"--json", "--base-url"},
+			"trust_commands":      []string{"register", "list", "resolve", "stats", "status", "capabilities", "delist", "doctor", "provenance-sync"},
+			"knowledge_commands":  []string{"knowledge-create", "knowledge-get", "knowledge-list", "knowledge-supersede", "knowledge-contradict", "knowledge-attest"},
+			"memory_commands":     []string{"memory-create", "memory-get", "memory-list", "memory-remember", "memory-forget", "memory-delete"},
+		},
+		"llms_txt": "/llms.txt",
+	}
+	writeJSON(w, 200, manifest)
 }
 
 // init ensures time import is used (for landing page timestamp)

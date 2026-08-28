@@ -1,0 +1,155 @@
+# ProvenGraph Agent Surface
+# Format: section headers with key: value metadata. Agents parse this with grep/key-value extraction.
+# Also available as JSON at GET /v0/agent-manifest
+
+service: ProvenGraph
+version: v0
+base_url: https://provengraph.trucore.xyz
+health: GET /health
+docs: https://provengraph.trucore.xyz/docs
+source: https://github.com/trucore-ai/provengraph
+license: MIT
+
+## Service Identity
+name: ProvenGraph
+description: A provenance graph for the agent economy  -  three product lines on one graph engine. Trust scores MCP servers on reliability and reputation. Knowledge tracks verifiable claims with attestation-weighted scoring. Memory stores purpose-tagged, GDPR-ready agent memories.
+keywords: trust, provenance, registry, knowledge, memory, compliance, graph, mcp, server-discovery
+category: infrastructure
+tier: production
+
+## Capabilities
+capability: mcp-server-registry
+capability: trust-scoring
+capability: knowledge-graph
+capability: claim-verification
+capability: agent-memory
+capability: gdpr-compliance
+capability: right-to-be-forgotten
+
+## Auth Model
+auth_method: write_key
+auth_header: X-Write-Key or Authorization: Bearer <key>
+auth_scope: per-resource (each claim/memory/server gets its own key)
+public_endpoints: GET endpoints are unauthenticated
+write_endpoints: POST/PUT/DELETE require write_key
+
+## Pillars
+
+### Trust
+pillar: trust
+description: MCP server registry with provenance-weighted trust scores
+purpose: Eliminate hardcoded server URLs. Agents resolve capabilities against live, probed endpoints ranked by uptime and outcome-verified reputation.
+agent_workflow:
+  1_register: POST /v0/servers {name, server_url, capabilities, health_url?, probe_method?} -> {server_id, write_key}
+  2_resolve: GET /v0/resolve?capability=<name> -> [{server_id, name, server_url, uptime_30d, trust_score, trust_tier, status}]
+  3_report_outcome: POST /v0/outcomes {server_id, success: bool, rating: 0-5, reporter} -> feeds reputation scoring
+  4_list: GET /v0/servers?capability=X&query=Y&status=active -> paginated server list with trust metadata
+trust_scoring:
+  model: provenance_weighted
+  reliability_weight: 0-55 (30-day uptime)
+  latency_weight: 0-20 (response time)
+  provenance_weight: 0-25 (attester trust + outcome reputation)
+  outcome_moat: true (reporter's own trust weights the report)
+  tiers: verified (>=85), trusted (>=70), provisional (>=50), untrusted (<50)
+
+### Knowledge
+pillar: knowledge
+description: Verifiable knowledge claims with attestation-scored provenance
+purpose: Build a shared knowledge base where truth is attested, not asserted. Every claim carries who vouched, who contradicted, and whether it's been superseded.
+agent_workflow:
+  1_create: POST /v0/knowledge {content, domain, issuer?} -> {claim_id, write_key}
+  2_get: GET /v0/knowledge/{id} -> {claim with ClaimBreakdown provenance}
+  3_search: GET /v0/knowledge?domain=X&q=Y -> {claims: [...]}
+  4_update: PUT /v0/knowledge/{id} {content?, domain?, status?} + write_key -> updated claim
+  5_supersede: POST /v0/knowledge/{id}/supersede {supersedes_id} + write_key -> marks old claim "superseded"
+  6_contradict: POST /v0/knowledge/{id}/contradict {contradicts_id} + write_key
+  7_attest: POST /v0/knowledge/{id}/attest {issuer} -> no write key needed, anyone can attest
+  8_provenance: GET /v0/knowledge/{id}/provenance -> ClaimBreakdown
+claim_scoring:
+  attestation_score: 0-30 (attester trust * freshness, diminishing returns)
+  freshness_score: 0-15 (average attestation freshness)
+  contradiction_penalty: 0-15 (3 pts per inbound contradict edge)
+  supersession_penalty: 0-15 (binary: superseded or not)
+  total: 0-100
+
+### Memory
+pillar: memory
+description: Purpose-tagged agent memory with compliance metadata and retention policies
+purpose: Agents need searchable, auditable, deletable memory. Every entry records why it exists, how long it lives, who it concerns, and whether consent was obtained. Multiple agents can share memory.
+agent_workflow:
+  1_create: POST /v0/memory {content, owner, category?, retention?, purpose?, subject?} -> {memory_id, write_key}
+  2_get: GET /v0/memory/{id} -> memory entry
+  3_search: GET /v0/memory?agent=X&category=Y&q=Z -> {memories: [...]}
+  4_update: PUT /v0/memory/{id} {content?, category?, retention?, purpose?} + write_key
+  5_delete: DELETE /v0/memory/{id} + write_key -> right to be forgotten (hard delete)
+  6_remember: POST /v0/memory/{id}/remember {agent_id} -> agent remembers
+  7_forget: DELETE /v0/memory/{id}/forget?agent=X -> remove remembers edge
+compliance:
+  retention: permanent, session, 30d, 1y
+  categories: fact, preference, interaction, compliance_record
+  consent: tracked per entry
+  purpose: required per entry (GDPR Article 5)
+  right_to_be_forgotten: DELETE /v0/memory/{id}
+
+## Endpoint Index
+
+### Read (unauthenticated)
+method: path -> description
+GET: /health -> {status: ok}
+GET: /llms.txt -> LLM-readable API reference (text/markdown)
+GET: /agents.txt -> Agent surface manifest (this file)
+GET: /v0/agent-manifest -> JSON agent manifest
+GET: /v0/resolve?capability=<name> -> UP servers ranked by uptime
+GET: /v0/servers -> List servers (filters: query, capability, status, cursor, limit)
+GET: /v0/servers/{id} -> Single server detail
+GET: /v0/stats -> Registry statistics
+GET: /v0/export -> Full registry dump
+GET: /v0/capabilities -> Capabilities with server counts
+GET: /v0/tools -> Tools extracted from descriptions (?query=, ?capability=, ?limit=)
+GET: /v0/knowledge/{id} -> Claim with provenance
+GET: /v0/knowledge -> List/search claims (?domain=X&q=Y)
+GET: /v0/knowledge/{id}/provenance -> ClaimBreakdown
+GET: /v0/memory/{id} -> Memory entry
+GET: /v0/memory -> List/search memories (?agent=X&category=Y&q=Z)
+
+### Write (requires X-Write-Key or Authorization: Bearer)
+method: path -> description
+POST: /v0/servers -> Register server {name, server_url, capabilities}
+PUT: /v0/servers/{id} -> Update server manifest
+DELETE: /v0/servers/{id} -> Delist server (soft delete)
+POST: /v0/outcomes -> Report outcome {server_id, success, rating, reporter}
+POST: /v0/knowledge -> Create claim {content, domain, issuer?}
+PUT: /v0/knowledge/{id} -> Update claim
+POST: /v0/knowledge/{id}/supersede -> Supersede {supersedes_id}
+POST: /v0/knowledge/{id}/contradict -> Contradict {contradicts_id}
+POST: /v0/knowledge/{id}/attest -> Attest {issuer} (no write key needed)
+POST: /v0/memory -> Create memory {content, owner}
+PUT: /v0/memory/{id} -> Update memory
+DELETE: /v0/memory/{id} -> Delete memory (right to be forgotten)
+POST: /v0/memory/{id}/remember -> Remember {agent_id}
+DELETE: /v0/memory/{id}/forget -> Forget ?agent=X
+
+## SDK
+python:
+  install: pip install meshdns-client
+  import: from meshdns_client import MeshDNS
+  constructor: MeshDNS(base_url="https://provengraph.trucore.xyz")
+  trust_methods: resolve, list_servers, get_server, register_server, update_server, delist_server, report_outcome
+  knowledge_methods: create_claim, get_claim, list_claims, update_claim, supersede_claim, contradict_claim, attest_claim
+  memory_methods: create_memory, get_memory, list_memories, update_memory, delete_memory, remember, forget
+
+typescript:
+  install: npm i @meshdns/client
+  import: import { MeshDNS } from "@meshdns/client"
+  constructor: new MeshDNS("https://provengraph.trucore.xyz")
+  trust_methods: resolve, listServers, getServer, registerServer, updateServer, delistServer, reportOutcome
+  knowledge_methods: createClaim, getClaim, listClaims, updateClaim, supersedeClaim, contradictClaim, attestClaim
+  memory_methods: createMemory, getMemory, listMemories, updateMemory, deleteMemory, remember, forget
+
+## CLI
+binary: provengraph
+install: go install github.com/trucore-ai/provengraph/cmd/provengraph@latest
+trust_commands: register, list, resolve, stats, status, capabilities, delist, doctor, provenance-sync
+knowledge_commands: knowledge-create, knowledge-get, knowledge-list, knowledge-supersede, knowledge-contradict, knowledge-attest
+memory_commands: memory-create, memory-get, memory-list, memory-remember, memory-forget, memory-delete
+global_flags: --json (JSON output), --base-url (default http://localhost:8080)
