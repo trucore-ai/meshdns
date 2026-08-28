@@ -42,6 +42,7 @@ type RegisterRequest struct {
 	ProbeMethod  string   `json:"probe_method"`
 	Capabilities []string `json:"capabilities"`
 	OwnerContact string   `json:"owner_contact"`
+	CostPerCall  *float64 `json:"cost_per_call"` // USD per call; nil = undisclosed
 }
 
 // RegisterResponse is returned on successful registration.
@@ -59,6 +60,7 @@ type UpdateRequest struct {
 	ProbeMethod  *string   `json:"probe_method,omitempty"`
 	Capabilities *[]string `json:"capabilities,omitempty"`
 	OwnerContact *string   `json:"owner_contact,omitempty"`
+	CostPerCall  *float64  `json:"cost_per_call,omitempty"` // USD per call; nil = no change
 }
 
 // ServerWithState is the public JSON shape for list/resolve responses.
@@ -90,6 +92,7 @@ type ServerWithState struct {
 	Verified    bool     `json:"verified,omitempty"`
 	OutcomeCount int     `json:"outcome_count,omitempty"`
 	OutcomeRate  float64 `json:"outcome_success_rate,omitempty"`
+	CostPerCall  float64 `json:"cost_per_call,omitempty"` // USD; -1 = undisclosed
 	Provenance   *graph.TrustBreakdown `json:"provenance,omitempty"`
 }
 
@@ -240,6 +243,15 @@ func computeTrust(sws store.ServerWithState, source string) (float64, string, bo
 		score += 5
 	}
 
+	// Cost transparency (0-3): a DISCLOSED cost (cost_per_call >= 0, i.e. not the
+	// -1 "undisclosed" sentinel) is a mild honesty signal — hidden costs are a
+	// surprise-billing risk at runtime. The magnitude of cost deliberately does
+	// NOT affect trust (expensive ≠ trustworthy); cost is surfaced for ranking,
+	// not scored.
+	if sws.CostPerCall >= 0 {
+		score += 3
+	}
+
 	// Outcome verification (the trust moat): agent-reported "did it work?"
 	// results. Requires >= 3 reports to be statistically meaningful; a perfect
 	// success rate adds up to +5 (total is capped at 100 below).
@@ -308,6 +320,7 @@ func (s *Server) storeServerWithStateToAPI(sws store.ServerWithState) ServerWith
 		Verified:      verified,
 		OutcomeCount:  sws.OutcomeCount,
 		OutcomeRate:   sws.OutcomeRate,
+		CostPerCall:   sws.CostPerCall,
 		Provenance:    s.provenanceFor(sws.ID),
 	}
 }
@@ -342,6 +355,7 @@ func (s *Server) syncServerToGraph(sws store.ServerWithState) {
 		"capabilities":    sws.Capabilities,
 		"uptime_30d":      sws.Uptime30d,
 		"avg_latency_ms":  sws.AvgLatencyMs,
+		"cost_per_call":   sws.CostPerCall,
 		"source":          sws.Source,
 		"owner_contact":   sws.OwnerContact,
 	}
@@ -477,6 +491,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		probeMethod = "GET"
 	}
 
+	// Cost: nil = undisclosed (-1 sentinel); otherwise the disclosed USD value
+	// (0 = free is valid and distinct from undisclosed).
+	costPerCall := -1.0
+	if req.CostPerCall != nil {
+		costPerCall = *req.CostPerCall
+		if costPerCall < 0 {
+			costPerCall = -1.0
+		}
+	}
+
 	_, err := s.Store.CreateServer(&store.Server{
 		ID:           serverID,
 		Name:         req.Name,
@@ -486,6 +510,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		WriteKeyHash: writeKeyHash,
 		OwnerContact: req.OwnerContact,
 		ProbeMethod:  probeMethod,
+		CostPerCall:  costPerCall,
 	})
 	if err != nil {
 		writeError(w, 500, "db_error", "failed to create server: "+err.Error())
@@ -539,6 +564,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 		Status:       srv.Status,
 		OwnerContact: srv.OwnerContact,
 		ProbeMethod:  srv.ProbeMethod,
+		CostPerCall:  srv.CostPerCall,
 		CreatedAt:    srv.CreatedAt,
 		UpdatedAt:    srv.UpdatedAt,
 	}
@@ -551,6 +577,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 			result.Source = sws.Source
 			result.ToolCount = sws.ToolCount
 			result.AvgLatencyMs = sws.AvgLatencyMs
+			result.CostPerCall = sws.CostPerCall
 			break
 		}
 	}
@@ -571,6 +598,7 @@ func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 		Uptime30d:    result.Uptime30d,
 		AvgLatencyMs: result.AvgLatencyMs,
 		ToolCount:    result.ToolCount,
+		CostPerCall:  result.CostPerCall,
 	}, result.Source)
 
 	if result.Capabilities == nil {
@@ -611,6 +639,7 @@ func (s *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 		HealthURL:    existing.HealthURL,
 		OwnerContact: existing.OwnerContact,
 		ProbeMethod:  existing.ProbeMethod,
+		CostPerCall:  existing.CostPerCall,
 	}
 	if req.Name != nil {
 		updates.Name = *req.Name
@@ -629,6 +658,12 @@ func (s *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ProbeMethod != nil {
 		updates.ProbeMethod = strings.ToUpper(*req.ProbeMethod)
+	}
+	if req.CostPerCall != nil {
+		updates.CostPerCall = *req.CostPerCall
+		if updates.CostPerCall < 0 {
+			updates.CostPerCall = -1.0
+		}
 	}
 
 	if err := s.Store.UpdateServer(serverID, hashWriteKey(writeKey), updates); err != nil {

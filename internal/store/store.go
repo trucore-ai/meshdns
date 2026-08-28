@@ -19,6 +19,7 @@ type Server struct {
 	OwnerContact string
 	Status       string
 	ProbeMethod  string
+	CostPerCall  float64 // USD per call; -1 = not disclosed (sentinel), 0 = free
 	CreatedAt    string
 	UpdatedAt    string
 }
@@ -38,6 +39,7 @@ type ServerWithState struct {
 	AvgLatencyMs  int      `json:"avg_latency_ms,omitempty"`
 	OutcomeCount  int      `json:"outcome_count,omitempty"`
 	OutcomeRate   float64  `json:"outcome_success_rate,omitempty"`
+	CostPerCall   float64  `json:"cost_per_call,omitempty"` // USD; -1 = undisclosed
 	OwnerContact  string   `json:"owner_contact,omitempty"`
 	ProbeMethod   string   `json:"probe_method,omitempty"`
 	Source        string   `json:"source,omitempty"`
@@ -112,6 +114,7 @@ func (s *Store) migrate() error {
 		probe_method TEXT NOT NULL DEFAULT '',
 		source TEXT DEFAULT '',
 		tool_count INTEGER DEFAULT 0,
+		cost_per_call REAL NOT NULL DEFAULT -1,
 		created_at TEXT NOT NULL,
 		updated_at TEXT NOT NULL
 	);
@@ -175,6 +178,7 @@ func (s *Store) ensureServerColumns() error {
 	hasProbeMethod := false
 	hasSource := false
 	hasToolCount := false
+	hasCostPerCall := false
 	for rows.Next() {
 		var cid int
 		var name, colType string
@@ -191,6 +195,8 @@ func (s *Store) ensureServerColumns() error {
 			hasSource = true
 		case "tool_count":
 			hasToolCount = true
+		case "cost_per_call":
+			hasCostPerCall = true
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -212,6 +218,11 @@ func (s *Store) ensureServerColumns() error {
 			return err
 		}
 	}
+	if !hasCostPerCall {
+		if _, err := s.db.Exec(`ALTER TABLE servers ADD COLUMN cost_per_call REAL NOT NULL DEFAULT -1`); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -230,11 +241,11 @@ func (s *Store) CreateServer(srv *Server) (string, error) {
 
 	_, err := s.db.Exec(
 		`INSERT INTO servers (id, name, description, server_url, health_url, write_key_hash,
-		 owner_contact, status, probe_method, source, tool_count, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 owner_contact, status, probe_method, source, tool_count, cost_per_call, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		srv.ID, srv.Name, srv.Description, srv.ServerURL, srv.HealthURL,
 		srv.WriteKeyHash, srv.OwnerContact, srv.Status, srv.ProbeMethod,
-		"", 0, srv.CreatedAt, srv.UpdatedAt,
+		"", 0, srv.CostPerCall, srv.CreatedAt, srv.UpdatedAt,
 	)
 	if err != nil {
 		return "", err
@@ -247,11 +258,11 @@ func (s *Store) GetServer(id string) (*Server, error) {
 	srv := &Server{}
 	err := s.db.QueryRow(
 		`SELECT id, name, description, server_url, health_url, write_key_hash,
-		 owner_contact, status, probe_method, created_at, updated_at
+		 owner_contact, status, probe_method, COALESCE(cost_per_call, -1), created_at, updated_at
 		 FROM servers WHERE id = ?`, id,
 	).Scan(&srv.ID, &srv.Name, &srv.Description, &srv.ServerURL, &srv.HealthURL,
 		&srv.WriteKeyHash, &srv.OwnerContact, &srv.Status, &srv.ProbeMethod,
-		&srv.CreatedAt, &srv.UpdatedAt)
+		&srv.CostPerCall, &srv.CreatedAt, &srv.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +274,11 @@ func (s *Store) GetServerByName(name string) (*Server, error) {
 	srv := &Server{}
 	err := s.db.QueryRow(
 		`SELECT id, name, description, server_url, health_url, write_key_hash,
-		 owner_contact, status, probe_method, created_at, updated_at
+		 owner_contact, status, probe_method, COALESCE(cost_per_call, -1), created_at, updated_at
 		 FROM servers WHERE name = ?`, name,
 	).Scan(&srv.ID, &srv.Name, &srv.Description, &srv.ServerURL, &srv.HealthURL,
 		&srv.WriteKeyHash, &srv.OwnerContact, &srv.Status, &srv.ProbeMethod,
-		&srv.CreatedAt, &srv.UpdatedAt)
+		&srv.CostPerCall, &srv.CreatedAt, &srv.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -289,9 +300,9 @@ func (s *Store) UpdateServer(id, writeKeyHash string, updates *Server) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = s.db.Exec(
 		`UPDATE servers SET name=?, description=?, server_url=?, health_url=?,
-		 owner_contact=?, probe_method=?, updated_at=? WHERE id=?`,
+		 owner_contact=?, probe_method=?, cost_per_call=?, updated_at=? WHERE id=?`,
 		updates.Name, updates.Description, updates.ServerURL, updates.HealthURL,
-		updates.OwnerContact, updates.ProbeMethod, now, id,
+		updates.OwnerContact, updates.ProbeMethod, updates.CostPerCall, now, id,
 	)
 	return err
 }
@@ -365,7 +376,7 @@ func (s *Store) ListServers(query, capability, status, cursor string, limit int)
 
 	baseSQL := `SELECT s.id, s.name, s.description, s.server_url, s.health_url,
 		s.status, s.owner_contact, s.probe_method,
-		COALESCE(s.source, ''), COALESCE(s.tool_count, 0),
+		COALESCE(s.source, ''), COALESCE(s.tool_count, 0), COALESCE(s.cost_per_call, -1),
 		s.created_at, s.updated_at,
 		COALESCE(ss.up, 0), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, ''),
 		COALESCE(CAST((SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM probes WHERE server_id = s.id AND latency_ms > 0 ORDER BY ts DESC LIMIT 20)) AS INTEGER), 0),
@@ -389,7 +400,7 @@ func (s *Store) ListServers(query, capability, status, cursor string, limit int)
 		var sws ServerWithState
 		if err := rows.Scan(&sws.ID, &sws.Name, &sws.Description, &sws.ServerURL, &sws.HealthURL,
 			&sws.Status, &sws.OwnerContact, &sws.ProbeMethod,
-			&sws.Source, &sws.ToolCount,
+			&sws.Source, &sws.ToolCount, &sws.CostPerCall,
 			&sws.CreatedAt, &sws.UpdatedAt,
 			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt, &sws.AvgLatencyMs,
 			&sws.OutcomeCount, &sws.OutcomeRate); err != nil {
@@ -505,7 +516,7 @@ func (s *Store) GetUpServersByCapability(capability string) ([]ServerWithState, 
 	rows, err := s.db.Query(`
 		SELECT s.id, s.name, s.description, s.server_url, s.health_url,
 			s.status, s.owner_contact, s.probe_method,
-			COALESCE(s.source, ''), COALESCE(s.tool_count, 0),
+			COALESCE(s.source, ''), COALESCE(s.tool_count, 0), COALESCE(s.cost_per_call, -1),
 			s.created_at, s.updated_at,
 			COALESCE(ss.up, 1), COALESCE(ss.uptime_30d, 0.0), COALESCE(ss.last_checked_at, ''),
 			COALESCE(CAST((SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM probes WHERE server_id = s.id AND latency_ms > 0 ORDER BY ts DESC LIMIT 20)) AS INTEGER), 0),
@@ -530,7 +541,7 @@ func (s *Store) GetUpServersByCapability(capability string) ([]ServerWithState, 
 		var sws ServerWithState
 		if err := rows.Scan(&sws.ID, &sws.Name, &sws.Description, &sws.ServerURL, &sws.HealthURL,
 			&sws.Status, &sws.OwnerContact, &sws.ProbeMethod,
-			&sws.Source, &sws.ToolCount,
+			&sws.Source, &sws.ToolCount, &sws.CostPerCall,
 			&sws.CreatedAt, &sws.UpdatedAt,
 			&sws.Up, &sws.Uptime30d, &sws.LastCheckedAt, &sws.AvgLatencyMs,
 			&sws.OutcomeCount, &sws.OutcomeRate); err != nil {
