@@ -9,3 +9,4 @@ sdk/**/package-lock.json
 *.test.db
 meshdns-cli
 meshdns-linux
+update_trucore.py

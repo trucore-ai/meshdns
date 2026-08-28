@@ -181,7 +181,7 @@
       </a>
       <nav class="tc-nav">
         <a href="https://www.trucore.xyz/atf">ATF</a>
-        <a href="https://meshdns.trucore.xyz">MeshDNS</a>
+        <a href="https://provengraph.trucore.xyz">MeshDNS</a>
         <a href="https://x402fuel.trucore.xyz">x402Fuel</a>
       </nav>
     </div>
@@ -216,7 +216,7 @@
         <tr><th>Param</th><th>Description</th></tr>
         <tr><td>capability <span class="required">required</span></td><td>The capability slug to resolve (e.g. "sandbox", "web-search", "mcp-server")</td></tr>
       </table>
-      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/resolve?capability=sandbox" | jq .</code></pre>
+      <pre><code>curl -s "https://provengraph.trucore.xyz/v0/resolve?capability=sandbox" | jq .</code></pre>
     </div>
 
     <div class="endpoint">
@@ -233,7 +233,7 @@
         <tr><td>cursor</td><td>Pagination cursor from previous response</td></tr>
         <tr><td>limit</td><td>Max results per page (1–100, default 20)</td></tr>
       </table>
-      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/servers?capability=mcp-server&status=active&limit=10" | jq .</code></pre>
+      <pre><code>curl -s "https://provengraph.trucore.xyz/v0/servers?capability=mcp-server&status=active&limit=10" | jq .</code></pre>
     </div>
 
     <div class="endpoint">
@@ -242,7 +242,7 @@
         <span class="endpoint-path">/v0/servers/{id}</span>
       </div>
       <p class="endpoint-desc">Get a single server by its UUID.</p>
-      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/servers/00047d75-8270-42f4-b79d-e3fc30db4510" | jq .</code></pre>
+      <pre><code>curl -s "https://provengraph.trucore.xyz/v0/servers/00047d75-8270-42f4-b79d-e3fc30db4510" | jq .</code></pre>
     </div>
 
     <div class="endpoint">
@@ -251,7 +251,7 @@
         <span class="endpoint-path">/v0/servers</span>
       </div>
       <p class="endpoint-desc">Register a new MCP server. Returns a <code>server_id</code> and <code>write_key</code> — save the write key for updates.</p>
-      <pre><code>curl -X POST https://meshdns.trucore.xyz/v0/servers \
+      <pre><code>curl -X POST https://provengraph.trucore.xyz/v0/servers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-mcp-server",
@@ -270,7 +270,7 @@
         <span class="endpoint-path">/v0/servers/{id}</span>
       </div>
       <p class="endpoint-desc">Update server manifest. Requires <code>X-Write-Key</code> or <code>Authorization: Bearer</code> header. All fields are optional — send only what changed.</p>
-      <pre><code>curl -X PUT https://meshdns.trucore.xyz/v0/servers/{id} \
+      <pre><code>curl -X PUT https://provengraph.trucore.xyz/v0/servers/{id} \
   -H "Content-Type: application/json" \
   -H "X-Write-Key: {your_write_key}" \
   -d '{"description": "Updated description"}'</code></pre>
@@ -282,7 +282,7 @@
         <span class="endpoint-path">/v0/servers/{id}</span>
       </div>
       <p class="endpoint-desc">Delist (soft-delete) a server. Requires write key auth. The server is hidden from list/resolve but retained for history.</p>
-      <pre><code>curl -X DELETE https://meshdns.trucore.xyz/v0/servers/{id} \
+      <pre><code>curl -X DELETE https://provengraph.trucore.xyz/v0/servers/{id} \
   -H "X-Write-Key: {your_write_key}"</code></pre>
     </div>
 
@@ -292,7 +292,7 @@
         <span class="endpoint-path">/v0/stats</span>
       </div>
       <p class="endpoint-desc">Registry statistics: active/total servers, up count, 24h resolutions and probe counts.</p>
-      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/stats" | jq .</code></pre>
+      <pre><code>curl -s "https://provengraph.trucore.xyz/v0/stats" | jq .</code></pre>
     </div>
 
     <div class="endpoint">
@@ -301,7 +301,7 @@
         <span class="endpoint-path">/v0/export</span>
       </div>
       <p class="endpoint-desc">Full registry dump — all servers with current health state. Useful for bulk analysis.</p>
-      <pre><code>curl -s "https://meshdns.trucore.xyz/v0/export" | jq .</code></pre>
+      <pre><code>curl -s "https://provengraph.trucore.xyz/v0/export" | jq .</code></pre>
     </div>
 
     <h2 id="health-checks">Health Checks</h2>
@@ -351,7 +351,7 @@
         <pre><code>pip install meshdns-client</code></pre>
         <pre><code>from meshdns_client import MeshDNS
 
-client = MeshDNS("https://meshdns.trucore.xyz")
+client = MeshDNS("https://provengraph.trucore.xyz")
 servers = client.resolve("sandbox")
 for s in servers:
     print(s["name"], s["server_url"], s["uptime_30d"])</code></pre>
@@ -361,7 +361,7 @@ for s in servers:
         <pre><code>npm i @meshdns/client</code></pre>
         <pre><code>import { MeshDNS } from "@meshdns/client";
 
-const client = new MeshDNS("https://meshdns.trucore.xyz");
+const client = new MeshDNS("https://provengraph.trucore.xyz");
 const servers = await client.resolve("sandbox");
 console.log(servers.map(s => s.name));</code></pre>
       </div>

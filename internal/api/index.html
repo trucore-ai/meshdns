@@ -246,7 +246,7 @@
   .card-meta {
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;
   }
-  .card-meta .src-badge, .card-meta .auth-badge, .card-meta .latency-badge, .card-meta .tool-count-badge {
+  .card-meta .src-badge, .card-meta .auth-badge, .card-meta .latency-badge, .card-meta .tool-count-badge, .card-meta .cost-badge {
     display: inline-flex; align-items: center; font-size: 10px; font-weight: 500;
     border-radius: 999px; padding: 3px 8px; border: 1px solid; white-space: nowrap;
   }
@@ -260,6 +260,7 @@
   .auth-badge.auth-required { color: #fecdd3; background: rgba(251,113,133,0.08); border-color: rgba(251,113,133,0.18); }
   .latency-badge { color: #fde68a; background: rgba(253,230,138,0.06); border-color: rgba(253,230,138,0.16); }
   .tool-count-badge { color: #67e8f9; background: rgba(103,232,249,0.06); border-color: rgba(103,232,249,0.16); }
+  .cost-badge { color: #86efac; background: rgba(134,239,172,0.06); border-color: rgba(134,239,172,0.16); }
 
   /* Trust badge — the ProvenGraph trust layer */
   .trust-badge {
@@ -557,7 +558,7 @@
     </a>
     <nav class="tc-nav">
       <a href="https://www.trucore.xyz/atf">ATF</a>
-      <a href="https://meshdns.trucore.xyz" aria-current="true">ProvenGraph</a>
+      <a href="https://provengraph.trucore.xyz" aria-current="true">ProvenGraph</a>
       <a href="https://x402fuel.trucore.xyz">x402Fuel</a>
     </nav>
   </div>
@@ -1198,6 +1199,14 @@
         toolBadge = '<span class="tool-count-badge" title="' + esc(toolTitle) + '">' + toolCount + ' tool' + (toolCount !== 1 ? 's' : '') + '</span>';
       }
 
+      // Cost badge — only when disclosed (cost_per_call >= 0; -1 = undisclosed)
+      var cost = server.cost_per_call;
+      var costBadge = '';
+      if (cost != null && cost >= 0) {
+        var costLabel = cost === 0 ? 'free' : '$' + Number(cost).toFixed(4).replace(/0+$/, '').replace(/\.$/, '') + '/call';
+        costBadge = '<span class="cost-badge" title="Disclosed cost per call">' + esc(costLabel) + '</span>';
+      }
+
       // Trust badge — the ProvenGraph trust layer
       var trustTier = server.trust_tier || '';
       var trustScore = server.trust_score;
@@ -1260,6 +1269,7 @@
       html += authBadge;
       html += latencyBadge;
       html += toolBadge;
+      html += costBadge;
       html += '</div>';
 
       // Capabilities
