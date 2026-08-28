@@ -40,6 +40,6 @@ The POST probe sends a valid MCP `initialize` request (`jsonrpc: "2.0"`, `method
 - TypeScript: `npm i @meshdns/client` → `import { MeshDNSClient } from "@meshdns/client"`
 
 ## Docs
-- [Full Documentation](https://trucore.xyz/docs/meshdns): Architecture, API reference, SDK quickstart, health check model, FAQ.
+- [Full Documentation](https://trucore.xyz/docs/provengraph): Architecture, Trust/Knowledge/Memory product lines, API reference, trust scoring model, health check model, FAQ.
 - [GitHub](https://github.com/trucore-ai/meshdns): Source code, issues, discussions.
 - [License](https://github.com/trucore-ai/meshdns/blob/main/LICENSE): MIT.
