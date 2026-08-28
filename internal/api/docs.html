@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MeshDNS — API Reference</title>
+  <title>ProvenGraph — API Reference</title>
   <style>
     :root {
       color-scheme: dark;
@@ -182,14 +182,15 @@
       <nav class="tc-nav">
         <a href="https://www.trucore.xyz/atf">ATF</a>
         <a href="https://provengraph.trucore.xyz">ProvenGraph</a>
+      <a href="/docs">Docs</a>
       </nav>
     </div>
   </header>
 
   <main class="wrap">
     <a class="back-link" href="/">← Back to Dashboard</a>
-    <h1>MeshDNS API Reference</h1>
-    <p class="lede">Complete reference for the MeshDNS REST API. All endpoints return JSON. The API is versioned under <code>/v0</code>.</p>
+    <h1>ProvenGraph API Reference</h1>
+    <p class="lede">Complete reference for the ProvenGraph REST API. All endpoints return JSON. The API is versioned under <code>/v0</code>.</p>
 
     <nav class="toc">
       <h4>Jump to</h4>
@@ -307,11 +308,11 @@
     <div class="section-grid">
       <div class="info-card">
         <h3>GET Probe (default)</h3>
-        <p style="color:var(--muted);font-size:13px;">MeshDNS sends a GET to <code>health_url</code> every 60s. If the server responds 2xx, it's marked UP. Non-2xx triggers auto-detect POST probe.</p>
+        <p style="color:var(--muted);font-size:13px;">ProvenGraph sends a GET to <code>health_url</code> every 60s. If the server responds 2xx, it's marked UP. Non-2xx triggers auto-detect POST probe.</p>
       </div>
       <div class="info-card">
         <h3>POST Probe (auto-detect)</h3>
-        <p style="color:var(--muted);font-size:13px;">If GET fails with 405 or any 4xx, MeshDNS sends a standards-compliant MCP <code>initialize</code> request. If POST succeeds, the server is marked UP and the switch is persisted.</p>
+        <p style="color:var(--muted);font-size:13px;">If GET fails with 405 or any 4xx, ProvenGraph sends a standards-compliant MCP <code>initialize</code> request. If POST succeeds, the server is marked UP and the switch is persisted.</p>
       </div>
       <div class="info-card">
         <h3>Explicit POST</h3>
@@ -366,13 +367,13 @@ console.log(servers.map(s => s.name));</code></pre>
       </div>
       <div class="info-card" style="grid-column: 1 / -1;">
         <h3>Hermes Agent Skills</h3>
-        <p style="color:var(--muted);font-size:13px;">MeshDNS ships with three pre-built Hermes Agent skills for instant agent integration:</p>
+        <p style="color:var(--muted);font-size:13px;">ProvenGraph ships with three pre-built Hermes Agent skills for instant agent integration:</p>
         <ul style="color:var(--muted);font-size:13px;margin:8px 0;padding-left:20px;">
-          <li><code>meshdns-quickstart</code> — one-stop guide: discover, register, lazy MCP pattern</li>
-          <li><code>meshdns</code> — full API reference, architecture, deployment, health checks</li>
-          <li><code>meshdns-lazy-mcp</code> — on-the-fly MCP discovery, 750+ servers, zero pre-config</li>
+          <li><code>provengraph-quickstart</code> — one-stop guide: discover, register, lazy MCP pattern</li>
+          <li><code>provengraph</code> — full API reference, architecture, trust scoring, deployment</li>
+          <li><code>provengraph-lazy-mcp</code> — on-the-fly MCP discovery, 3,900+ servers, zero pre-config</li>
         </ul>
-        <p style="color:var(--muted);font-size:12px;">Load with: <code>skill_view('meshdns-quickstart')</code></p>
+        <p style="color:var(--muted);font-size:12px;">Load with: <code>skill_view('meshdns-quickstart')</code> (skill IDs are stable; display names are Provengraph)</p>
       </div>
     </div>
 
@@ -380,12 +381,12 @@ console.log(servers.map(s => s.name));</code></pre>
     <div class="section-grid">
       <div class="info-card">
         <h3>Single Binary</h3>
-        <p style="color:var(--muted);font-size:13px;">MeshDNS ships as a single static Go binary with zero external dependencies. SQLite via pure Go — no CGo, no database server needed.</p>
+        <p style="color:var(--muted);font-size:13px;">ProvenGraph ships as a single static Go binary with zero external dependencies. SQLite via pure Go — no CGo, no database server needed.</p>
       </div>
       <div class="info-card">
         <h3>Docker</h3>
-        <pre><code>docker build -t meshdns .
-docker run -d -p 8080:8080 -v ./data:/data meshdns</code></pre>
+        <pre><code>docker build -t provengraph .
+docker run -d -p 8080:8080 -v ./data:/data provengraph</code></pre>
       </div>
       <div class="info-card">
         <h3>Configuration</h3>
