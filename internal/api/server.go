@@ -48,6 +48,21 @@ func (s *Server) mountRoutes() {
 	s.mux.HandleFunc("GET /v0/tools", s.handleListTools)
 	s.mux.HandleFunc("GET /v0/capabilities", s.handleListCapabilities)
 	s.mux.HandleFunc("POST /v0/outcomes", s.handleReportOutcome)
+	s.mux.HandleFunc("POST /v0/knowledge", s.handleCreateClaim)
+	s.mux.HandleFunc("GET /v0/knowledge/{id}", s.handleGetClaim)
+	s.mux.HandleFunc("GET /v0/knowledge", s.handleListClaims)
+	s.mux.HandleFunc("PUT /v0/knowledge/{id}", s.handleUpdateClaim)
+	s.mux.HandleFunc("POST /v0/knowledge/{id}/supersede", s.handleSupersedeClaim)
+	s.mux.HandleFunc("POST /v0/knowledge/{id}/contradict", s.handleContradictClaim)
+	s.mux.HandleFunc("POST /v0/knowledge/{id}/attest", s.handleAttestClaim)
+	s.mux.HandleFunc("GET /v0/knowledge/{id}/provenance", s.handleClaimProvenance)
+	s.mux.HandleFunc("POST /v0/memory", s.handleCreateMemory)
+	s.mux.HandleFunc("GET /v0/memory/{id}", s.handleGetMemory)
+	s.mux.HandleFunc("GET /v0/memory", s.handleListMemories)
+	s.mux.HandleFunc("PUT /v0/memory/{id}", s.handleUpdateMemory)
+	s.mux.HandleFunc("DELETE /v0/memory/{id}", s.handleDeleteMemory)
+	s.mux.HandleFunc("POST /v0/memory/{id}/remember", s.handleRemember)
+	s.mux.HandleFunc("DELETE /v0/memory/{id}/forget", s.handleForget)
 }
 
 // ServeHTTP implements http.Handler.

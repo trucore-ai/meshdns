@@ -225,6 +225,25 @@ func (g *Graph) EdgesTo(dst string, typ EdgeType) ([]Edge, error) {
 		FROM pg_edges WHERE dst = ? AND type = ?`, dst, string(typ))
 }
 
+// EdgesFrom returns all edges originating from a node (optionally filtered by type).
+func (g *Graph) EdgesFrom(src string, typ EdgeType) ([]Edge, error) {
+	return g.queryEdges(`SELECT id, src, dst, type, evidence_url, evidence_hash, issuer, timestamp, freshness, attrs
+		FROM pg_edges WHERE src = ? AND type = ?`, src, string(typ))
+}
+
+// DeleteEdge removes a specific edge by ID. Returns nil even if the edge
+// doesn't exist (idempotent delete).
+func (g *Graph) DeleteEdge(id string) error {
+	_, err := g.db.Exec(`DELETE FROM pg_edges WHERE id = ?`, id)
+	return err
+}
+
+// AllEdgesTo returns all edges pointing at a node, regardless of type.
+func (g *Graph) AllEdgesTo(dst string) ([]Edge, error) {
+	return g.queryEdges(`SELECT id, src, dst, type, evidence_url, evidence_hash, issuer, timestamp, freshness, attrs
+		FROM pg_edges WHERE dst = ?`, dst)
+}
+
 func (g *Graph) queryEdges(q string, args ...any) ([]Edge, error) {
 	rows, err := g.db.Query(q, args...)
 	if err != nil {
@@ -365,4 +384,214 @@ func clamp(v, lo, hi float64) float64 {
 		return hi
 	}
 	return math.Round(v*10) / 10
+}
+
+// --- Knowledge Claim scoring ---
+
+// ClaimBreakdown is the provenance score for a knowledge claim. Unlike service
+// trust scores, claims are scored entirely from graph provenance — no flat
+// signals (no probes, no latency).
+type ClaimBreakdown struct {
+	ClaimID             string  `json:"claim_id"`
+	AttestationScore    float64 `json:"attestation_score"`     // 0-30: who vouches, weighted by attester trust * freshness
+	FreshnessScore      float64 `json:"freshness_score"`       // 0-15: how fresh the attestations are
+	ContradictionPenalty float64 `json:"contradiction_penalty"` // 0-15: 3 pts per contradiction, capped
+	SupersessionPenalty float64 `json:"supersession_penalty"`  // 0-15: claim has been superseded
+	Total               float64 `json:"total"`                 // 0-100
+	NumAttestations     int     `json:"num_attestations"`
+	NumContradictions   int     `json:"num_contradictions"`
+	Superseded          bool    `json:"superseded"`
+}
+
+// ClaimScore computes the provenance score for a knowledge claim. Attestations
+// from trusted orgs raise it; contradictions and supersession lower it.
+func (g *Graph) ClaimScore(claimID string) (ClaimBreakdown, error) {
+	b := ClaimBreakdown{ClaimID: claimID}
+
+	// 1. Attestations (0-30): sum of attester trust * freshness, diminishing returns.
+	attests, err := g.EdgesTo(claimID, EdgeAttestsTo)
+	if err != nil {
+		return b, err
+	}
+	attestWeight := 0.0
+	for _, e := range attests {
+		attestWeight += g.nodeTrust(e.Src) * e.Freshness
+	}
+	b.NumAttestations = len(attests)
+	b.AttestationScore = clamp(30.0*(1.0-math.Exp(-attestWeight/2.0)), 0, 30)
+
+	// 2. Freshness (0-15): average freshness across attestation edges.
+	if len(attests) > 0 {
+		sumF := 0.0
+		for _, e := range attests {
+			sumF += e.Freshness
+		}
+		b.FreshnessScore = clamp(15.0*sumF/float64(len(attests)), 0, 15)
+	}
+
+	// 3. Contradictions (0-15 penalty): inbound contradicts edges.
+	contradicts, err := g.EdgesTo(claimID, EdgeContradicts)
+	if err != nil {
+		return b, err
+	}
+	b.NumContradictions = len(contradicts)
+	b.ContradictionPenalty = clamp(3.0*float64(b.NumContradictions), 0, 15)
+
+	// 4. Supersession (0-15 penalty): if ANY edge supersedes this claim.
+	supersedes, err := g.EdgesTo(claimID, EdgeSupersedes)
+	if err != nil {
+		return b, err
+	}
+	if len(supersedes) > 0 {
+		b.Superseded = true
+		b.SupersessionPenalty = 15.0
+	}
+
+	b.Total = clamp(b.AttestationScore+b.FreshnessScore-b.ContradictionPenalty-b.SupersessionPenalty, 0, 100)
+	return b, nil
+}
+
+// --- Knowledge query methods ---
+
+// ClaimsByDomain returns all claims in a domain, ordered by recency.
+func (g *Graph) ClaimsByDomain(domain string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	rows, err := g.db.Query(
+		`SELECT id, type, attrs, created_at, updated_at FROM pg_nodes
+		 WHERE type = ? AND json_extract(attrs, '$.domain') = ?
+		 ORDER BY updated_at DESC LIMIT ?`,
+		string(NodeKnowledgeClaim), domain, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanNodes(rows)
+}
+
+// SearchClaims does substring match on claim content + domain.
+func (g *Graph) SearchClaims(query string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := "%" + query + "%"
+	rows, err := g.db.Query(
+		`SELECT id, type, attrs, created_at, updated_at FROM pg_nodes
+		 WHERE type = ? AND (json_extract(attrs, '$.content') LIKE ? OR json_extract(attrs, '$.domain') LIKE ?)
+		 ORDER BY updated_at DESC LIMIT ?`,
+		string(NodeKnowledgeClaim), q, q, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanNodes(rows)
+}
+
+// --- Memory query methods ---
+
+// MemoriesByAgent returns all memory entries an agent remembers, optionally
+// filtered by category.
+func (g *Graph) MemoriesByAgent(agentID string, category string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	baseSQL := `SELECT n.id, n.type, n.attrs, n.created_at, n.updated_at
+		FROM pg_nodes n
+		JOIN pg_edges e ON e.dst = n.id
+		WHERE n.type = ? AND e.src = ? AND e.type = ?`
+	args := []any{string(NodeMemoryEntry), agentID, string(EdgeRemembers)}
+
+	if category != "" {
+		baseSQL += ` AND json_extract(n.attrs, '$.category') = ?`
+		args = append(args, category)
+	}
+	baseSQL += ` ORDER BY n.updated_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := g.db.Query(baseSQL, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanNodes(rows)
+}
+
+// SearchMemories does substring match on memory content for a given agent.
+// If agentID is empty, searches all memories.
+func (g *Graph) SearchMemories(agentID, query string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := "%" + query + "%"
+
+	var baseSQL string
+	var args []any
+
+	if agentID != "" {
+		baseSQL = `SELECT n.id, n.type, n.attrs, n.created_at, n.updated_at
+			FROM pg_nodes n
+			JOIN pg_edges e ON e.dst = n.id
+			WHERE n.type = ? AND e.src = ? AND e.type = ? AND json_extract(n.attrs, '$.content') LIKE ?`
+		args = []any{string(NodeMemoryEntry), agentID, string(EdgeRemembers), q}
+	} else {
+		baseSQL = `SELECT id, type, attrs, created_at, updated_at FROM pg_nodes
+			WHERE type = ? AND json_extract(attrs, '$.content') LIKE ?`
+		args = []any{string(NodeMemoryEntry), q}
+	}
+	baseSQL += ` ORDER BY updated_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := g.db.Query(baseSQL, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanNodes(rows)
+}
+
+// DeleteMemoryEntry hard-deletes a memory entry and all its edges.
+func (g *Graph) DeleteMemoryEntry(id string) error {
+	tx, err := g.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM pg_edges WHERE src = ? OR dst = ?`, id, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM pg_nodes WHERE id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// scanNodes reads Node rows from a *sql.Rows iterator.
+func scanNodes(rows *sql.Rows) ([]Node, error) {
+	var out []Node
+	for rows.Next() {
+		var n Node
+		var attrs string
+		if err := rows.Scan(&n.ID, &n.Type, &attrs, &n.CreatedAt, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		n.Attrs = unmarshalAttrs(attrs)
+		out = append(out, n)
+	}
+	return out, rows.Err()
 }

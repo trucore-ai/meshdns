@@ -39,6 +39,18 @@ func main() {
 	root.AddCommand(registerCmd())
 	root.AddCommand(resolveCmd())
 	root.AddCommand(provenanceSyncCmd())
+	root.AddCommand(knowledgeCreateCmd())
+	root.AddCommand(knowledgeGetCmd())
+	root.AddCommand(knowledgeListCmd())
+	root.AddCommand(knowledgeSupersedeCmd())
+	root.AddCommand(knowledgeContradictCmd())
+	root.AddCommand(knowledgeAttestCmd())
+	root.AddCommand(memoryCreateCmd())
+	root.AddCommand(memoryGetCmd())
+	root.AddCommand(memoryListCmd())
+	root.AddCommand(memoryRememberCmd())
+	root.AddCommand(memoryForgetCmd())
+	root.AddCommand(memoryDeleteCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -364,6 +376,607 @@ func provenanceSyncCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// ----- knowledge-create -----
+
+var (
+	kCreateContent string
+	kCreateDomain  string
+	kCreateIssuer  string
+	kBaseURL       string
+)
+
+func knowledgeCreateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-create",
+		Short: "Create a knowledge claim",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kCreateContent == "" || kCreateDomain == "" {
+				return fmt.Errorf("--content and --domain are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{
+				"content": kCreateContent,
+				"domain":  kCreateDomain,
+				"issuer":  kCreateIssuer,
+			})
+
+			resp, err := http.Post(
+				strings.TrimRight(kBaseURL, "/")+"/v0/knowledge",
+				"application/json",
+				strings.NewReader(string(body)),
+			)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Claim created!\n   Claim ID: %v\n   Write Key: %v\n   SAVE YOUR WRITE KEY.\n",
+					result["claim_id"], result["write_key"])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kCreateContent, "content", "", "Claim content")
+	cmd.Flags().StringVar(&kCreateDomain, "domain", "", "Claim domain")
+	cmd.Flags().StringVar(&kCreateIssuer, "issuer", "", "Issuer name")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- knowledge-get -----
+
+var kGetID string
+
+func knowledgeGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-get",
+		Short: "Get a knowledge claim by ID",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kGetID == "" {
+				return fmt.Errorf("--id is required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			resp, err := http.Get(strings.TrimRight(kBaseURL, "/") + "/v0/knowledge/" + kGetID)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+				return nil
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kGetID, "id", "", "Claim ID")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- knowledge-list -----
+
+var (
+	kListDomain string
+	kListQuery  string
+)
+
+func knowledgeListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-list",
+		Short: "List knowledge claims",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			url := strings.TrimRight(kBaseURL, "/") + "/v0/knowledge"
+			params := []string{}
+			if kListDomain != "" {
+				params = append(params, "domain="+kListDomain)
+			}
+			if kListQuery != "" {
+				params = append(params, "q="+kListQuery)
+			}
+			if len(params) > 0 {
+				url += "?" + strings.Join(params, "&")
+			}
+
+			resp, err := http.Get(url)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+				return nil
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kListDomain, "domain", "", "Filter by domain")
+	cmd.Flags().StringVar(&kListQuery, "query", "", "Search query")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- knowledge-supersede -----
+
+var (
+	kSupersedeID  string
+	kSupersedesID string
+	kSupersedeKey string
+)
+
+func knowledgeSupersedeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-supersede",
+		Short: "Assert one claim supersedes another",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kSupersedeID == "" || kSupersedesID == "" || kSupersedeKey == "" {
+				return fmt.Errorf("--id, --supersedes, and --write-key are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{"supersedes_id": kSupersedesID})
+			req, _ := http.NewRequest("POST",
+				strings.TrimRight(kBaseURL, "/")+"/v0/knowledge/"+kSupersedeID+"/supersede",
+				strings.NewReader(string(body)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Write-Key", kSupersedeKey)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Superseded claim %s\n", kSupersedesID)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kSupersedeID, "id", "", "Claim ID (the superseder)")
+	cmd.Flags().StringVar(&kSupersedesID, "supersedes", "", "Claim ID being superseded")
+	cmd.Flags().StringVar(&kSupersedeKey, "write-key", "", "Write key")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- knowledge-contradict -----
+
+var (
+	kContradictID  string
+	kContradictsID string
+	kContradictKey string
+)
+
+func knowledgeContradictCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-contradict",
+		Short: "Assert one claim contradicts another",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kContradictID == "" || kContradictsID == "" || kContradictKey == "" {
+				return fmt.Errorf("--id, --contradicts, and --write-key are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{"contradicts_id": kContradictsID})
+			req, _ := http.NewRequest("POST",
+				strings.TrimRight(kBaseURL, "/")+"/v0/knowledge/"+kContradictID+"/contradict",
+				strings.NewReader(string(body)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Write-Key", kContradictKey)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Contradicted claim %s\n", kContradictsID)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kContradictID, "id", "", "Claim ID (the contradictor)")
+	cmd.Flags().StringVar(&kContradictsID, "contradicts", "", "Claim ID being contradicted")
+	cmd.Flags().StringVar(&kContradictKey, "write-key", "", "Write key")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- knowledge-attest -----
+
+var (
+	kAttestID     string
+	kAttestIssuer string
+)
+
+func knowledgeAttestCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "knowledge-attest",
+		Short: "Attest to a knowledge claim",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kAttestID == "" || kAttestIssuer == "" {
+				return fmt.Errorf("--id and --issuer are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{"issuer": kAttestIssuer})
+			resp, err := http.Post(
+				strings.TrimRight(kBaseURL, "/")+"/v0/knowledge/"+kAttestID+"/attest",
+				"application/json",
+				strings.NewReader(string(body)),
+			)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Attested to claim %s as %s\n", kAttestID, kAttestIssuer)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&kAttestID, "id", "", "Claim ID")
+	cmd.Flags().StringVar(&kAttestIssuer, "issuer", "", "Issuer name")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-create -----
+
+var (
+	mCreateContent   string
+	mCreateCategory  string
+	mCreateRetention string
+	mCreatePurpose   string
+	mCreateSubject   string
+	mCreateOwner     string
+)
+
+func memoryCreateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-create",
+		Short: "Create a memory entry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mCreateContent == "" || mCreateOwner == "" {
+				return fmt.Errorf("--content and --owner are required")
+			}
+			if mCreateRetention == "" {
+				mCreateRetention = "permanent"
+			}
+			if mCreateCategory == "" {
+				mCreateCategory = "fact"
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{
+				"content":   mCreateContent,
+				"category":  mCreateCategory,
+				"retention": mCreateRetention,
+				"purpose":   mCreatePurpose,
+				"subject":   mCreateSubject,
+				"owner":     mCreateOwner,
+			})
+
+			resp, err := http.Post(
+				strings.TrimRight(kBaseURL, "/")+"/v0/memory",
+				"application/json",
+				strings.NewReader(string(body)),
+			)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Memory created!\n   Memory ID: %v\n   Write Key: %v\n   SAVE YOUR WRITE KEY.\n",
+					result["memory_id"], result["write_key"])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mCreateContent, "content", "", "Memory content")
+	cmd.Flags().StringVar(&mCreateCategory, "category", "fact", "Category")
+	cmd.Flags().StringVar(&mCreateRetention, "retention", "permanent", "Retention policy")
+	cmd.Flags().StringVar(&mCreatePurpose, "purpose", "", "Purpose of storage")
+	cmd.Flags().StringVar(&mCreateSubject, "subject", "", "Subject DID/agent")
+	cmd.Flags().StringVar(&mCreateOwner, "owner", "", "Owner agent")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-get -----
+
+var mGetID string
+
+func memoryGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-get",
+		Short: "Get a memory entry by ID",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mGetID == "" {
+				return fmt.Errorf("--id is required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			resp, err := http.Get(strings.TrimRight(kBaseURL, "/") + "/v0/memory/" + mGetID)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+				return nil
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mGetID, "id", "", "Memory ID")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-list -----
+
+var (
+	mListAgent    string
+	mListCategory string
+	mListMemQuery string
+)
+
+func memoryListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-list",
+		Short: "List memory entries",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			url := strings.TrimRight(kBaseURL, "/") + "/v0/memory"
+			params := []string{}
+			if mListAgent != "" {
+				params = append(params, "agent="+mListAgent)
+			}
+			if mListCategory != "" {
+				params = append(params, "category="+mListCategory)
+			}
+			if mListMemQuery != "" {
+				params = append(params, "q="+mListMemQuery)
+			}
+			if len(params) > 0 {
+				url += "?" + strings.Join(params, "&")
+			}
+
+			resp, err := http.Get(url)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+				return nil
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mListAgent, "agent", "", "Filter by agent ID")
+	cmd.Flags().StringVar(&mListCategory, "category", "", "Filter by category")
+	cmd.Flags().StringVar(&mListMemQuery, "query", "", "Search query")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-remember -----
+
+var (
+	mRememberID    string
+	mRememberAgent string
+)
+
+func memoryRememberCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-remember",
+		Short: "Agent remembers a memory entry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mRememberID == "" || mRememberAgent == "" {
+				return fmt.Errorf("--id and --agent are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			body, _ := json.Marshal(map[string]string{"agent_id": mRememberAgent})
+			resp, err := http.Post(
+				strings.TrimRight(kBaseURL, "/")+"/v0/memory/"+mRememberID+"/remember",
+				"application/json",
+				strings.NewReader(string(body)),
+			)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Agent %s now remembers memory %s\n", mRememberAgent, mRememberID)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mRememberID, "id", "", "Memory ID")
+	cmd.Flags().StringVar(&mRememberAgent, "agent", "", "Agent ID")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-forget -----
+
+var (
+	mForgetID    string
+	mForgetAgent string
+)
+
+func memoryForgetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-forget",
+		Short: "Agent forgets a memory entry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mForgetID == "" || mForgetAgent == "" {
+				return fmt.Errorf("--id and --agent are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			url := fmt.Sprintf("%s/v0/memory/%s/forget?agent=%s",
+				strings.TrimRight(kBaseURL, "/"), mForgetID, mForgetAgent)
+			req, _ := http.NewRequest("DELETE", url, nil)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Agent %s forgot memory %s\n", mForgetAgent, mForgetID)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mForgetID, "id", "", "Memory ID")
+	cmd.Flags().StringVar(&mForgetAgent, "agent", "", "Agent ID")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
+}
+
+// ----- memory-delete -----
+
+var (
+	mDeleteID  string
+	mDeleteKey string
+)
+
+func memoryDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "memory-delete",
+		Short: "Delete a memory entry (right to be forgotten)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mDeleteID == "" || mDeleteKey == "" {
+				return fmt.Errorf("--id and --write-key are required")
+			}
+			if kBaseURL == "" {
+				kBaseURL = "http://localhost:8080"
+			}
+
+			req, _ := http.NewRequest("DELETE",
+				strings.TrimRight(kBaseURL, "/")+"/v0/memory/"+mDeleteID, nil)
+			req.Header.Set("X-Write-Key", mDeleteKey)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("request failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			var result map[string]any
+			json.NewDecoder(resp.Body).Decode(&result)
+
+			if errData, ok := result["error"]; ok {
+				fmt.Printf("❌ Error: %v\n", errData)
+			} else {
+				fmt.Printf("✅ Memory %s deleted\n", mDeleteID)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mDeleteID, "id", "", "Memory ID")
+	cmd.Flags().StringVar(&mDeleteKey, "write-key", "", "Write key")
+	cmd.Flags().StringVar(&kBaseURL, "base-url", "http://localhost:8080", "ProvenGraph base URL")
+	return cmd
 }
 
 func init() {

@@ -157,6 +157,13 @@ func (s *Store) migrate() error {
 		FOREIGN KEY (server_id) REFERENCES servers(id)
 	);
 	CREATE INDEX IF NOT EXISTS idx_outcomes_server_ts ON outcomes(server_id, ts);
+	CREATE TABLE IF NOT EXISTS write_keys (
+		resource_id TEXT NOT NULL,
+		resource_type TEXT NOT NULL,
+		write_key_hash TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		PRIMARY KEY (resource_id, resource_type)
+	);
 	`
 	if _, err := s.db.Exec(schema); err != nil {
 		return err
@@ -671,4 +678,40 @@ func (s *Store) GetStats() (*Stats, error) {
 	}
 
 	return stats, nil
+}
+
+// --- Generic write-key management (for knowledge claims, memory entries, etc.) ---
+
+// SetWriteKey stores a write-key hash for a resource.
+func (s *Store) SetWriteKey(resourceID, resourceType, writeKeyHash string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec(
+		`INSERT INTO write_keys (resource_id, resource_type, write_key_hash, created_at)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(resource_id, resource_type) DO UPDATE SET write_key_hash = excluded.write_key_hash`,
+		resourceID, resourceType, writeKeyHash, now,
+	)
+	return err
+}
+
+// CheckWriteKey verifies a write-key hash for a resource.
+func (s *Store) CheckWriteKey(resourceID, resourceType, writeKeyHash string) bool {
+	var stored string
+	err := s.db.QueryRow(
+		`SELECT write_key_hash FROM write_keys WHERE resource_id = ? AND resource_type = ?`,
+		resourceID, resourceType,
+	).Scan(&stored)
+	if err != nil {
+		return false
+	}
+	return stored == writeKeyHash
+}
+
+// DeleteWriteKey removes the write key for a resource.
+func (s *Store) DeleteWriteKey(resourceID, resourceType string) error {
+	_, err := s.db.Exec(
+		`DELETE FROM write_keys WHERE resource_id = ? AND resource_type = ?`,
+		resourceID, resourceType,
+	)
+	return err
 }

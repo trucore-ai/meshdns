@@ -14,14 +14,34 @@ contradiction resolution.
 `go install github.com/trucore-ai/provengraph/cmd/provengraph@latest`
 
 ## API
-- `POST /v0/servers` — Register a server. Returns server_id + write_key. Optional `probe_method`: `GET` (default), `POST` for streamable-HTTP MCP endpoints, or omit for auto-detect — ProvenGraph auto-detects POST-only at runtime (see Health Checks).
-- `POST /v0/outcomes` — Report an outcome ("did it work?"). `{server_id, success, rating 0-5, reporter}`. Feeds the outcome-verified reputation edge.
+### Trust (MCP Server Registry)
+- `POST /v0/servers` — Register a server. Returns server_id + write_key.
+- `POST /v0/outcomes` — Report an outcome ("did it work?"). `{server_id, success, rating 0-5, reporter}`.
 - `GET /v0/resolve?capability=<name>` — Returns UP servers ranked by 30-day uptime.
-- `GET /v0/servers` — List servers with filters: status, query, capability, cursor, limit. Includes `trust_score`, `trust_tier`, `verified`, and `provenance` breakdown.
+- `GET /v0/servers` — List servers with filters: status, query, capability, cursor, limit.
 - `GET /v0/capabilities` — All capabilities with active server counts.
-- `GET /v0/tools` — Tools extracted from server descriptions (`?query=`, `?capability=`, `?limit=`).
+- `GET /v0/tools` — Tools extracted from descriptions (`?query=`, `?capability=`, `?limit=`).
 - `GET /v0/stats` — Registry statistics.
-- `GET /v0/export` — Full registry JSON export. Open data.
+- `GET /v0/export` — Full registry JSON export.
+
+### Knowledge (KnowMesh)
+- `POST /v0/knowledge` — Create a claim. Returns claim_id + write_key.
+- `GET /v0/knowledge/{id}` — Get claim with provenance score.
+- `GET /v0/knowledge` — List/search claims (`?domain=X&q=Y`).
+- `PUT /v0/knowledge/{id}` — Update claim (requires write key).
+- `POST /v0/knowledge/{id}/supersede` — Assert v2 supersedes v1.
+- `POST /v0/knowledge/{id}/contradict` — Assert claim contradicts another.
+- `POST /v0/knowledge/{id}/attest` — Attest to a claim (issuer vouches).
+- `GET /v0/knowledge/{id}/provenance` — Full claim provenance breakdown.
+
+### Memory (MemGuard)
+- `POST /v0/memory` — Create a memory entry. Returns memory_id + write_key.
+- `GET /v0/memory/{id}` — Get memory entry.
+- `GET /v0/memory` — List/search (`?agent=X&category=Y&q=Z`).
+- `PUT /v0/memory/{id}` — Update entry (requires write key).
+- `DELETE /v0/memory/{id}` — Delete (right to be forgotten).
+- `POST /v0/memory/{id}/remember` — Agent remembers.
+- `DELETE /v0/memory/{id}/forget?agent=X` — Agent forgets.
 
 ## Health Checks
 

@@ -519,6 +519,266 @@
   .section-hdr h2 { margin: 0 0 6px; font-size: 18px; letter-spacing: -0.03em; }
   .section-hdr p { color: var(--muted); font-size: 13px; margin: 0; max-width: 60ch; }
 
+  /* --- PRODUCT NAV / SECTIONS --- */
+  .product-nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 24px;
+    padding: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-border);
+    border-radius: calc(var(--radius) + 4px);
+    box-shadow: var(--shadow-card);
+  }
+  .product-tab {
+    flex: 1;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 16px;
+    transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  }
+  .product-tab:hover { color: var(--text); transform: translateY(-1px); }
+  .product-tab.active {
+    color: #c4b5fd;
+    background: rgba(167,139,250,0.14);
+    border-color: rgba(167,139,250,0.24);
+  }
+  .product-section {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 220ms ease, transform 220ms ease;
+    will-change: opacity, transform;
+  }
+  .product-section.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .filter-select {
+    min-width: 180px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  .filter-select:focus { border-color: rgba(125,211,252,0.35); }
+
+  .create-form {
+    display: grid;
+    gap: 12px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-field label {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .form-field input,
+  .form-field textarea,
+  .form-field select {
+    width: 100%;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    padding: 10px 12px;
+  }
+  .form-field textarea {
+    resize: vertical;
+    min-height: 108px;
+  }
+  .form-field input:focus,
+  .form-field textarea:focus,
+  .form-field select:focus {
+    border-color: rgba(167,139,250,0.32);
+  }
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .primary-btn {
+    border: 1px solid rgba(167,139,250,0.24);
+    background: linear-gradient(180deg, rgba(167,139,250,0.14), rgba(167,139,250,0.06));
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 150ms ease;
+    font-family: inherit;
+  }
+  .primary-btn:hover { border-color: rgba(167,139,250,0.38); background: linear-gradient(180deg, rgba(167,139,250,0.2), rgba(167,139,250,0.09)); }
+  .primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .write-key-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(103,232,249,0.16);
+    background: rgba(103,232,249,0.06);
+  }
+  .write-key-box .mini-title { margin-bottom: 8px; }
+  .write-key-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .write-key-row input {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid rgba(103,232,249,0.16);
+    background: rgba(0,0,0,0.18);
+    color: #dffcff;
+    border-radius: var(--radius-xs);
+    padding: 9px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .claim-domain-badge,
+  .claim-status-badge,
+  .provenance-badge,
+  .memory-category-badge,
+  .retention-badge,
+  .issuer-badge,
+  .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 3px 8px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .claim-domain-badge,
+  .issuer-badge,
+  .agent-badge {
+    color: #c4b5fd;
+    background: rgba(167,139,250,0.08);
+    border-color: rgba(167,139,250,0.16);
+  }
+  .claim-status-badge.active,
+  .memory-category-badge.fact {
+    color: #bbf7d0;
+    background: rgba(52,211,153,0.08);
+    border-color: rgba(52,211,153,0.18);
+  }
+  .claim-status-badge.superseded,
+  .memory-category-badge.preference {
+    color: #fde68a;
+    background: rgba(253,230,138,0.08);
+    border-color: rgba(253,230,138,0.18);
+  }
+  .claim-status-badge.contradicted,
+  .memory-category-badge.interaction {
+    color: #fecdd3;
+    background: rgba(251,113,133,0.08);
+    border-color: rgba(251,113,133,0.18);
+  }
+  .claim-status-badge.unknown,
+  .memory-category-badge.compliance_record {
+    color: #cbd5e1;
+    background: rgba(148,163,184,0.08);
+    border-color: rgba(148,163,184,0.18);
+  }
+  .provenance-badge.verified {
+    color: #bbf7d0;
+    background: rgba(52,211,153,0.1);
+    border-color: rgba(52,211,153,0.3);
+  }
+  .provenance-badge.trusted {
+    color: #67e8f9;
+    background: rgba(103,232,249,0.08);
+    border-color: rgba(103,232,249,0.25);
+  }
+  .provenance-badge.provisional {
+    color: #fde68a;
+    background: rgba(253,230,138,0.08);
+    border-color: rgba(253,230,138,0.25);
+  }
+  .provenance-badge.untrusted {
+    color: #fecdd3;
+    background: rgba(251,113,133,0.08);
+    border-color: rgba(251,113,133,0.25);
+  }
+  .memory-badge,
+  .retention-badge {
+    color: #7dd3fc;
+    background: rgba(125,211,252,0.06);
+    border-color: rgba(125,211,252,0.16);
+  }
+  .claim-card .card-desc,
+  .memory-card .card-desc {
+    white-space: pre-wrap;
+  }
+  .memory-card .card-desc {
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+  .claim-card .card-detail,
+  .memory-card .card-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 350ms ease, margin-top 350ms ease;
+    margin-top: 0;
+  }
+  .claim-card.expanded .card-detail,
+  .memory-card.expanded .card-detail {
+    max-height: 600px;
+    margin-top: 12px;
+  }
+  .detail-list {
+    display: grid;
+    gap: 8px;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .detail-row strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .inline-note {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
   .empty-state { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
   .loading-state { color: var(--muted); font-size: 13px; padding: 12px 0; }
 
@@ -546,6 +806,7 @@
     .site-header { flex-direction: column; align-items: flex-start; }
     .card-grid { grid-template-columns: 1fr; }
     .search-row { flex-direction: column; }
+    .form-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -573,6 +834,13 @@
 </script>
 
 <main class="wrap">
+  <nav class="product-nav" aria-label="Products">
+    <button class="product-tab active" type="button" data-product="trust" aria-pressed="true">Trust</button>
+    <button class="product-tab" type="button" data-product="knowledge" aria-pressed="false">Knowledge</button>
+    <button class="product-tab" type="button" data-product="memory" aria-pressed="false">Memory</button>
+  </nav>
+
+  <div id="product-trust" class="product-section active" style="display:block;">
 
   <!-- HERO -->
   <div class="hero">
@@ -741,6 +1009,20 @@
           <tr><td class="cmd">capabilities</td><td class="what">All capabilities with server counts</td><td><code class="example">provengraph capabilities</code><button class="cli-copy-btn" data-copy="provengraph capabilities">📋</button></td></tr>
           <tr><td class="cmd">delist</td><td class="what">Soft-delete a server (requires write key)</td><td><code class="example">provengraph delist my-server --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="provengraph delist my-server --write-key <key>">📋</button></td></tr>
           <tr><td class="cmd">doctor</td><td class="what">Health check — exits 0 if reachable</td><td><code class="example">provengraph doctor</code><button class="cli-copy-btn" data-copy="provengraph doctor">📋</button></td></tr>
+          <tr class="cli-section"><td colspan="3" style="padding-top:12px;font-weight:700;color:var(--accent-2);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">Knowledge</td></tr>
+          <tr><td class="cmd">knowledge-create</td><td class="what">Create a knowledge claim</td><td><code class="example">provengraph knowledge-create --content "..." --domain mcp-security --issuer TruCore</code><button class="cli-copy-btn" data-copy="provengraph knowledge-create --content \"...\" --domain mcp-security --issuer TruCore">📋</button></td></tr>
+          <tr><td class="cmd">knowledge-get</td><td class="what">Get a claim with provenance score</td><td><code class="example">provengraph knowledge-get --id claim:abc123</code><button class="cli-copy-btn" data-copy="provengraph knowledge-get --id claim:abc123">📋</button></td></tr>
+          <tr><td class="cmd">knowledge-list</td><td class="what">List claims by domain or search query</td><td><code class="example">provengraph knowledge-list --domain mcp-security</code><button class="cli-copy-btn" data-copy="provengraph knowledge-list --domain mcp-security">📋</button></td></tr>
+          <tr><td class="cmd">knowledge-supersede</td><td class="what">Assert v2 supersedes v1</td><td><code class="example">provengraph knowledge-supersede --id v2 --supersedes v1 --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="provengraph knowledge-supersede --id v2 --supersedes v1 --write-key <key>">📋</button></td></tr>
+          <tr><td class="cmd">knowledge-contradict</td><td class="what">Assert claim contradicts another</td><td><code class="example">provengraph knowledge-contradict --id claim:A --contradicts claim:B --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="provengraph knowledge-contradict --id claim:A --contradicts claim:B --write-key <key>">📋</button></td></tr>
+          <tr><td class="cmd">knowledge-attest</td><td class="what">Attest to a claim</td><td><code class="example">provengraph knowledge-attest --id claim:abc123 --issuer TruCore</code><button class="cli-copy-btn" data-copy="provengraph knowledge-attest --id claim:abc123 --issuer TruCore">📋</button></td></tr>
+          <tr class="cli-section"><td colspan="3" style="padding-top:12px;font-weight:700;color:var(--accent-3);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">Memory</td></tr>
+          <tr><td class="cmd">memory-create</td><td class="what">Create a memory entry</td><td><code class="example">provengraph memory-create --content "user prefers dark mode" --owner agent:hermes</code><button class="cli-copy-btn" data-copy="provengraph memory-create --content \"user prefers dark mode\" --owner agent:hermes">📋</button></td></tr>
+          <tr><td class="cmd">memory-get</td><td class="what">Get a memory entry by ID</td><td><code class="example">provengraph memory-get --id memory:abc123</code><button class="cli-copy-btn" data-copy="provengraph memory-get --id memory:abc123">📋</button></td></tr>
+          <tr><td class="cmd">memory-list</td><td class="what">List memories by agent or category</td><td><code class="example">provengraph memory-list --agent hermes --category preference</code><button class="cli-copy-btn" data-copy="provengraph memory-list --agent hermes --category preference">📋</button></td></tr>
+          <tr><td class="cmd">memory-remember</td><td class="what">Agent remembers a memory entry</td><td><code class="example">provengraph memory-remember --id memory:abc123 --agent agent:atlas</code><button class="cli-copy-btn" data-copy="provengraph memory-remember --id memory:abc123 --agent agent:atlas">📋</button></td></tr>
+          <tr><td class="cmd">memory-forget</td><td class="what">Agent forgets (remove remembers edge)</td><td><code class="example">provengraph memory-forget --id memory:abc123 --agent agent:atlas</code><button class="cli-copy-btn" data-copy="provengraph memory-forget --id memory:abc123 --agent agent:atlas">📋</button></td></tr>
+          <tr><td class="cmd">memory-delete</td><td class="what">Hard delete (right to be forgotten)</td><td><code class="example">provengraph memory-delete --id memory:abc123 --write-key &lt;key&gt;</code><button class="cli-copy-btn" data-copy="provengraph memory-delete --id memory:abc123 --write-key <key>">📋</button></td></tr>
         </tbody>
       </table>
       <div class="install-bar">
@@ -833,13 +1115,197 @@
     </div>
     <div>Built by <a href="https://github.com/trucore-ai">TruCore Ventures</a> · <a href="https://github.com/trucore-ai/provengraph">MIT License</a></div>
   </div>
+  </div>
+
+  <div id="product-knowledge" class="product-section" style="display:none;">
+    <div class="hero" style="margin-bottom: 24px;">
+      <div class="eyebrow"><span aria-hidden="true">○</span> Provenance Graph · Knowledge</div>
+      <h1>Knowledge — what's true in the agent economy</h1>
+      <p class="lede">Claims with verifiable provenance. Attestations from trusted orgs raise the score. Contradictions and supersession lower it.</p>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom: 22px;">
+      <div class="stat-card">
+        <label>Total Claims</label>
+        <div class="value accent" id="knowledge-stat-total">—</div>
+        <div class="hint">Fetched from /v0/knowledge</div>
+      </div>
+      <div class="stat-card">
+        <label>Active Domains</label>
+        <div class="value" id="knowledge-stat-domains" style="color:var(--good)">—</div>
+        <div class="hint">Unique domain count</div>
+      </div>
+    </div>
+
+    <div class="section-stack">
+      <div class="panel">
+        <div class="panel-body">
+          <div class="section-hdr" style="margin-bottom:14px;">
+            <div class="eyebrow">Claims</div>
+            <h2>Search claims</h2>
+          </div>
+          <div class="search-row">
+            <div class="search-wrap">
+              <span class="search-icon">⌕</span>
+              <input type="text" id="knowledge-search" placeholder="Search claims by content, issuer, or provenance..." autocomplete="off" />
+            </div>
+            <select class="filter-select" id="knowledge-domain-filter" aria-label="Filter by domain">
+              <option value="">All domains</option>
+            </select>
+          </div>
+          <div class="results-info">
+            <span id="knowledge-results-text">Loading claims...</span>
+          </div>
+          <div class="card-scroll" style="max-height:none; overflow:visible; padding-right:0; margin-right:0;">
+            <div class="card-grid" id="knowledge-card-grid">
+              <div class="empty-state">Loading claims...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body">
+          <div class="section-hdr">
+            <div class="eyebrow">Create</div>
+            <h2>Create a claim</h2>
+            <p>Submit a new claim with provenance metadata. The API returns a write key for later updates.</p>
+          </div>
+          <form class="create-form" id="knowledge-create-form">
+            <div class="form-field full">
+              <label for="knowledge-content">Content</label>
+              <textarea id="knowledge-content" name="content" placeholder="Enter the claim text..." required></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="knowledge-domain">Domain</label>
+                <input id="knowledge-domain" name="domain" type="text" placeholder="example.com" required />
+              </div>
+              <div class="form-field">
+                <label for="knowledge-issuer">Issuer</label>
+                <input id="knowledge-issuer" name="issuer" type="text" placeholder="Issuer org" required />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit" id="knowledge-submit">Submit claim</button>
+              <span class="inline-note">Stored via <code style="font-family:var(--mono);color:var(--accent-2);">POST /v0/knowledge</code></span>
+              <span class="inline-note" id="knowledge-form-status"></span>
+            </div>
+          </form>
+          <div class="write-key-box" id="knowledge-write-key-box" style="display:none;">
+            <div class="mini-title">Write key</div>
+            <div class="write-key-row">
+              <input type="text" id="knowledge-write-key" readonly />
+              <button class="copy-btn" type="button" id="knowledge-copy-write-key">📋 Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="product-memory" class="product-section" style="display:none;">
+    <div class="hero" style="margin-bottom: 24px;">
+      <div class="eyebrow"><span aria-hidden="true">○</span> Provenance Graph · Memory</div>
+      <h1>Memory — what agents remember, with compliance built in</h1>
+      <p class="lede">Purpose-tagged memory entries with retention policies and consent. Searchable, forgettable — GDPR-ready from day one.</p>
+    </div>
+
+    <div class="section-stack">
+      <div class="panel">
+        <div class="panel-body">
+          <div class="section-hdr" style="margin-bottom:14px;">
+            <div class="eyebrow">Memory</div>
+            <h2>Search memories</h2>
+          </div>
+          <div class="search-row">
+            <div class="search-wrap">
+              <span class="search-icon">⌕</span>
+              <input type="text" id="memory-search" placeholder="Search memories by content, purpose, or subject..." autocomplete="off" />
+            </div>
+            <select class="filter-select" id="memory-agent-filter" aria-label="Filter by agent">
+              <option value="">All agents</option>
+            </select>
+          </div>
+          <div class="results-info">
+            <span id="memory-results-text">Loading memories...</span>
+          </div>
+          <div class="card-scroll" style="max-height:none; overflow:visible; padding-right:0; margin-right:0;">
+            <div class="card-grid" id="memory-card-grid">
+              <div class="empty-state">Loading memories...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body">
+          <div class="section-hdr">
+            <div class="eyebrow">Create</div>
+            <h2>Create a memory</h2>
+            <p>Store a purpose-tagged memory entry with retention and consent metadata.</p>
+          </div>
+          <form class="create-form" id="memory-create-form">
+            <div class="form-field full">
+              <label for="memory-content">Content</label>
+              <textarea id="memory-content" name="content" placeholder="Enter the memory content..." required></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="memory-category">Category</label>
+                <select id="memory-category" name="category" required>
+                  <option value="fact">fact</option>
+                  <option value="preference">preference</option>
+                  <option value="interaction">interaction</option>
+                  <option value="compliance_record">compliance_record</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="memory-retention">Retention</label>
+                <select id="memory-retention" name="retention" required>
+                  <option value="permanent">permanent</option>
+                  <option value="session">session</option>
+                  <option value="30d">30d</option>
+                  <option value="1y">1y</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="memory-owner">Owner</label>
+                <input id="memory-owner" name="owner" type="text" placeholder="agent-name" required />
+              </div>
+              <div class="form-field">
+                <label for="memory-purpose">Purpose</label>
+                <input id="memory-purpose" name="purpose" type="text" placeholder="why this memory exists" required />
+              </div>
+              <div class="form-field">
+                <label for="memory-subject">Subject</label>
+                <input id="memory-subject" name="subject" type="text" placeholder="user, account, device..." required />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit" id="memory-submit">Submit memory</button>
+              <span class="inline-note">Stored via <code style="font-family:var(--mono);color:var(--accent-2);">POST /v0/memory</code></span>
+              <span class="inline-note" id="memory-form-status"></span>
+            </div>
+          </form>
+          <div class="write-key-box" id="memory-write-key-box" style="display:none;">
+            <div class="mini-title">Write key</div>
+            <div class="write-key-row">
+              <input type="text" id="memory-write-key" readonly />
+              <button class="copy-btn" type="button" id="memory-copy-write-key">📋 Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <!-- ============================================================ -->
 <!-- JAVASCRIPT -->
 <!-- ============================================================ -->
 <script>
-(function() {
+ (function() {
   'use strict';
 
   // --- DOM REFS ---
@@ -848,7 +1314,6 @@
   var statResolutions = document.getElementById('stat-resolutions');
   var statProbes = document.getElementById('stat-probes');
   var cardGrid = document.getElementById('card-grid');
-  var resultsInfo = document.getElementById('results-info');
   var resultsText = document.getElementById('results-text');
   var loadMoreWrap = document.getElementById('load-more-wrap');
   var loadMoreBtn = document.getElementById('load-more-btn');
@@ -859,18 +1324,71 @@
   var toggleToolsBtn = document.getElementById('toggle-tools');
   var registryTitle = document.getElementById('registry-title');
   var trustPillRow = document.getElementById('trust-pill-row');
+  var pageSizeRow = document.querySelector('.page-size-row');
+
+  var productTabs = Array.prototype.slice.call(document.querySelectorAll('.product-tab'));
+  var productSections = {
+    trust: document.getElementById('product-trust'),
+    knowledge: document.getElementById('product-knowledge'),
+    memory: document.getElementById('product-memory')
+  };
+
+  var knowledgeSearchInput = document.getElementById('knowledge-search');
+  var knowledgeDomainFilter = document.getElementById('knowledge-domain-filter');
+  var knowledgeCardGrid = document.getElementById('knowledge-card-grid');
+  var knowledgeResultsText = document.getElementById('knowledge-results-text');
+  var knowledgeStatTotal = document.getElementById('knowledge-stat-total');
+  var knowledgeStatDomains = document.getElementById('knowledge-stat-domains');
+  var knowledgeForm = document.getElementById('knowledge-create-form');
+  var knowledgeContentInput = document.getElementById('knowledge-content');
+  var knowledgeDomainInput = document.getElementById('knowledge-domain');
+  var knowledgeIssuerInput = document.getElementById('knowledge-issuer');
+  var knowledgeSubmitBtn = document.getElementById('knowledge-submit');
+  var knowledgeWriteKeyBox = document.getElementById('knowledge-write-key-box');
+  var knowledgeWriteKeyInput = document.getElementById('knowledge-write-key');
+  var knowledgeCopyWriteKey = document.getElementById('knowledge-copy-write-key');
+  var knowledgeFormStatus = document.getElementById('knowledge-form-status');
+
+  var memorySearchInput = document.getElementById('memory-search');
+  var memoryAgentFilter = document.getElementById('memory-agent-filter');
+  var memoryCardGrid = document.getElementById('memory-card-grid');
+  var memoryResultsText = document.getElementById('memory-results-text');
+  var memoryForm = document.getElementById('memory-create-form');
+  var memoryContentInput = document.getElementById('memory-content');
+  var memoryCategoryInput = document.getElementById('memory-category');
+  var memoryRetentionInput = document.getElementById('memory-retention');
+  var memoryPurposeInput = document.getElementById('memory-purpose');
+  var memorySubjectInput = document.getElementById('memory-subject');
+  var memoryOwnerInput = document.getElementById('memory-owner');
+  var memorySubmitBtn = document.getElementById('memory-submit');
+  var memoryWriteKeyBox = document.getElementById('memory-write-key-box');
+  var memoryWriteKeyInput = document.getElementById('memory-write-key');
+  var memoryCopyWriteKey = document.getElementById('memory-copy-write-key');
+  var memoryFormStatus = document.getElementById('memory-form-status');
 
   // --- STATE ---
+  var currentProduct = sessionStorage.getItem('meshdns-product') || 'trust';
   var currentQuery = '';
   var currentCapability = '';
-  var currentTrustTier = ''; // '' | verified | trusted | provisional | untrusted
+  var currentTrustTier = '';
   var nextCursor = null;
   var totalServers = 0;
   var currentLimit = 30;
-  var currentMode = 'servers'; // 'servers' | 'tools'
+  var currentMode = sessionStorage.getItem('meshdns-mode') || 'servers';
   var allCapabilities = [];
   var loadedServers = [];
   var timerSearch = null;
+  var sectionHideTimers = {};
+
+  var knowledgeIndex = [];
+  var knowledgeVisible = [];
+  var timerKnowledge = null;
+
+  var memoryIndex = [];
+  var memoryVisible = [];
+  var timerMemory = null;
+
+  if (!productSections[currentProduct]) currentProduct = 'trust';
 
   // --- TRUCORE DETECTION ---
   var TRUCORE_NAMES = ['meshdns-registry', 'x402fuel', 'trucore-site', 'trading-lab-ui', 'deepwiki-mcp', 'smithery', 'mcp-official-registry', 'atf-firewall'];
@@ -887,29 +1405,51 @@
 
   // --- UTILS ---
   function esc(s) {
-    return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function shortDate(v) {
     if (!v) return 'never';
     var d = new Date(v);
-    if (isNaN(d.getTime())) return v;
+    if (isNaN(d.getTime())) return String(v);
     return new Intl.DateTimeFormat(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);
   }
 
   function fmtNum(n) {
-    if (n == null) return '—';
+    if (n == null || n === '') return '—';
     return Number(n).toLocaleString();
   }
 
-  async function fetchJSON(path) {
-    var url = (window.location.origin && window.location.origin !== 'null') ? window.location.origin + path : path;
-    var resp = await fetch(url, {headers: {Accept: 'application/json'}});
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    return await resp.json();
+  function pick(obj, keys, fallback) {
+    if (!obj) return fallback;
+    for (var i = 0; i < keys.length; i++) {
+      var v = obj[keys[i]];
+      if (v != null && v !== '') return v;
+    }
+    return fallback;
   }
 
-  // --- COPY HELPER ---
+  function listFromResponse(data, keys) {
+    if (Array.isArray(data)) return data;
+    if (!data) return [];
+    for (var i = 0; i < keys.length; i++) {
+      if (Array.isArray(data[keys[i]])) return data[keys[i]];
+    }
+    if (Array.isArray(data.results)) return data.results;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.data)) return data.data;
+    return [];
+  }
+
+  function tierFromScore(score) {
+    var n = Number(score);
+    if (!isFinite(n)) return 'untrusted';
+    if (n >= 90) return 'verified';
+    if (n >= 70) return 'trusted';
+    if (n >= 40) return 'provisional';
+    return 'untrusted';
+  }
+
   function showCopied(btn) {
     var origHTML = btn.innerHTML;
     btn.innerHTML = '✓ Copied!';
@@ -920,7 +1460,31 @@
     }, 2000);
   }
 
-  // --- Wire up all copy buttons ---
+  async function fetchJSON(path) {
+    var url = (window.location.origin && window.location.origin !== 'null') ? window.location.origin + path : path;
+    var resp = await fetch(url, {headers: {Accept: 'application/json'}});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return await resp.json();
+  }
+
+  async function postJSON(path, payload) {
+    var url = (window.location.origin && window.location.origin !== 'null') ? window.location.origin + path : path;
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      var body = '';
+      try { body = await resp.text(); } catch (e) {}
+      throw new Error(body || ('HTTP ' + resp.status));
+    }
+    return await resp.json();
+  }
+
   function wireCopyButtons() {
     document.querySelectorAll('.copy-btn[data-copy], .cli-copy-btn[data-copy], .tool-copy-btn[data-copy]').forEach(function(btn) {
       if (btn._wired) return;
@@ -937,6 +1501,68 @@
     });
   }
 
+  function syncProductTabs() {
+    productTabs.forEach(function(tab) {
+      var active = tab.getAttribute('data-product') === currentProduct;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function setSectionVisible(name, visible) {
+    var el = productSections[name];
+    if (!el) return;
+    clearTimeout(sectionHideTimers[name]);
+    if (visible) {
+      el.style.display = 'block';
+      el.offsetHeight;
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+      sectionHideTimers[name] = setTimeout(function() {
+        if (currentProduct !== name) {
+          el.style.display = 'none';
+        }
+      }, 240);
+    }
+  }
+
+  function setInitialProductState(name) {
+    Object.keys(productSections).forEach(function(key) {
+      var el = productSections[key];
+      if (!el) return;
+      var visible = key === name;
+      el.style.display = visible ? 'block' : 'none';
+      el.classList.toggle('active', visible);
+    });
+    syncProductTabs();
+  }
+
+  function activateProduct(name, initial) {
+    if (!productSections[name]) name = 'trust';
+    var prev = currentProduct;
+    currentProduct = name;
+    sessionStorage.setItem('meshdns-product', name);
+    syncProductTabs();
+
+    if (initial) {
+      setInitialProductState(name);
+    } else if (prev !== name) {
+      setSectionVisible(prev, false);
+      setSectionVisible(name, true);
+    }
+
+    if (name === 'trust') {
+      refreshStats();
+      refreshCapabilities();
+      setMode(currentMode);
+    } else if (name === 'knowledge') {
+      refreshKnowledgeIndex();
+    } else if (name === 'memory') {
+      refreshMemoryIndex();
+    }
+  }
+
   // --- STATS ---
   async function refreshStats() {
     try {
@@ -945,18 +1571,18 @@
       statUp.textContent = fmtNum(data.up_count);
       statResolutions.textContent = fmtNum(data.resolutions_24h);
       statProbes.textContent = fmtNum(data.probes_24h);
-    } catch(e) {}
+    } catch (e) {}
   }
 
   // --- CAPABILITIES ---
   async function refreshCapabilities() {
     try {
       var data = await fetchJSON('/v0/capabilities');
-      allCapabilities = (data.capabilities || []).sort(function(a,b) {
+      allCapabilities = (data.capabilities || []).sort(function(a, b) {
         return b.server_count - a.server_count;
       });
       renderCapPills();
-    } catch(e) {}
+    } catch (e) {}
   }
 
   function renderCapPills() {
@@ -1020,14 +1646,12 @@
     loadData();
   }
 
-  // --- CAP PILL CLICKS ---
   capPillRow.addEventListener('click', function(e) {
     var pill = e.target.closest('.cap-pill');
     if (!pill) return;
     selectCapability(pill.getAttribute('data-cap'));
   });
 
-  // --- PAGE SIZE ---
   document.querySelectorAll('.page-size-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.page-size-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -1038,7 +1662,6 @@
     });
   });
 
-  // --- SEARCH ---
   searchInput.addEventListener('input', function() {
     clearTimeout(timerSearch);
     timerSearch = setTimeout(function() {
@@ -1052,54 +1675,40 @@
     }, 250);
   });
 
-  // --- TOGGLE ---
   function setMode(mode) {
     currentMode = mode;
     sessionStorage.setItem('meshdns-mode', mode);
-
     toggleServersBtn.classList.toggle('active', mode === 'servers');
     toggleToolsBtn.classList.toggle('active', mode === 'tools');
 
     if (mode === 'servers') {
       registryTitle.textContent = 'MCP Servers';
       searchInput.placeholder = 'Search by name, description, or capability...';
-      document.querySelector('.page-size-row').style.display = '';
+      pageSizeRow.style.display = '';
       capPillRow.style.display = '';
       resetPagination();
-      loadServers(true);
+      if (currentProduct === 'trust') loadServers(true);
     } else {
       registryTitle.textContent = 'MCP Tools';
       searchInput.placeholder = 'Search tools by name, capability, or parent server...';
-      // Keep the same filter UI: page-size + cap pills + trust pills all stay visible
-      document.querySelector('.page-size-row').style.display = '';
+      pageSizeRow.style.display = '';
       capPillRow.style.display = '';
       resetPagination();
-      loadTools();
+      if (currentProduct === 'trust') loadTools();
     }
   }
 
   toggleServersBtn.addEventListener('click', function() { setMode('servers'); });
   toggleToolsBtn.addEventListener('click', function() { setMode('tools'); });
 
-  // Restore mode
-  var savedMode = sessionStorage.getItem('meshdns-mode');
-  if (savedMode === 'tools') {
-    setMode('tools');
-  }
-
-  // --- PAGINATION ---
   function resetPagination() {
     nextCursor = null;
     totalServers = 0;
     loadedServers = [];
   }
 
-  // --- LOAD SERVERS ---
   async function loadServers(reset) {
-    if (reset) {
-      resetPagination();
-    }
-
+    if (reset) resetPagination();
     try {
       var url = '/v0/servers?limit=' + currentLimit;
       if (currentCapability && currentCapability !== '__trucore__') {
@@ -1115,7 +1724,6 @@
       var data = await fetchJSON(url);
       var servers = data.servers || [];
 
-      // Filter by trust tier (computed server-side; applied client-side)
       if (currentTrustTier) {
         servers = servers.filter(function(s) {
           return (s.trust_tier || '') === currentTrustTier;
@@ -1128,18 +1736,14 @@
         loadedServers = reset ? servers : loadedServers.concat(servers);
         nextCursor = null;
       } else {
-        if (reset) {
-          loadedServers = servers;
-        } else {
-          loadedServers = loadedServers.concat(servers);
-        }
+        loadedServers = reset ? servers : loadedServers.concat(servers);
         nextCursor = data.next_cursor || null;
         totalServers = data.total || loadedServers.length;
       }
 
       renderServerCards();
       updateResultsInfo();
-    } catch(e) {
+    } catch (e) {
       if (reset) {
         cardGrid.innerHTML = '<div class="empty-state">Registry currently unreachable.</div>';
       }
@@ -1167,7 +1771,6 @@
       var source = server.source || '';
       var sourceURL = server.source_url || '';
 
-      // Source badge
       var sourceBadge = '';
       if (source && source !== 'Custom') {
         sourceBadge = '<a class="src-badge' + (tc ? ' trucore' : '') + '" href="' + esc(sourceURL) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(source) + '</a>';
@@ -1175,7 +1778,6 @@
         sourceBadge = '<span class="src-badge trucore">TruCore</span>';
       }
 
-      // Auth badge
       var auth = server.auth || '';
       var authBadge = '';
       if (auth === 'public') {
@@ -1184,14 +1786,12 @@
         authBadge = '<span class="auth-badge auth-required">auth required</span>';
       }
 
-      // Latency badge
       var latency = server.avg_latency_ms;
       var latencyBadge = '';
       if (latency != null) {
         latencyBadge = '<span class="latency-badge">' + Number(latency).toFixed(0) + 'ms avg</span>';
       }
 
-      // Tool count badge
       var toolCount = server.tool_count || 0;
       var toolBadge = '';
       if (toolCount > 0) {
@@ -1199,7 +1799,6 @@
         toolBadge = '<span class="tool-count-badge" title="' + esc(toolTitle) + '">' + toolCount + ' tool' + (toolCount !== 1 ? 's' : '') + '</span>';
       }
 
-      // Cost badge — only when disclosed (cost_per_call >= 0; -1 = undisclosed)
       var cost = server.cost_per_call;
       var costBadge = '';
       if (cost != null && cost >= 0) {
@@ -1207,7 +1806,6 @@
         costBadge = '<span class="cost-badge" title="Disclosed cost per call">' + esc(costLabel) + '</span>';
       }
 
-      // Trust badge — the ProvenGraph trust layer
       var trustTier = server.trust_tier || '';
       var trustScore = server.trust_score;
       var trustBadge = '';
@@ -1219,7 +1817,6 @@
           '<span class="trust-score">' + (trustScore != null ? trustScore : '') + '</span></span>';
       }
 
-      // Capabilities
       var caps = server.capabilities || [];
       var capsHTML = '';
       var maxShow = 3;
@@ -1234,36 +1831,28 @@
         capsHTML += '<span class="cap-more-btn" data-server-id="' + esc(server.id || server.name) + '">+' + (caps.length - maxShow) + ' more</span>';
       }
 
-      // Curl snippet
       var curlSnippet = server.curl_snippet || '';
       var curlHTML = '';
       if (curlSnippet) {
         curlHTML = '<div class="detail-section"><div class="detail-label">LazyMCP curl</div><pre>' + esc(curlSnippet) + '</pre><button class="copy-btn" data-copy="' + esc(curlSnippet).replace(/"/g, '&quot;') + '">📋 Copy curl</button></div>';
       }
 
-      // Tool names in detail
       var toolNames = server.tool_names || [];
       var toolsHTML = '';
       if (toolNames.length > 0) {
         toolsHTML = '<div class="detail-section"><div class="detail-label">Tools</div><div class="detail-value">' + esc(toolNames.join(', ')) + '</div></div>';
       }
 
-      // Dates
       var created = server.created_at ? shortDate(server.created_at) : 'n/a';
       var updated = server.updated_at ? shortDate(server.updated_at) : 'n/a';
 
       html += '<div class="server-card" data-server-id="' + esc(server.id || server.name) + '">';
-      // Header
       html += '<div class="card-header">';
       html += '<span class="status-dot ' + statusClass + '"></span>';
       html += '<span class="srv-name">' + esc(server.name || server.id || '') + '</span>';
       html += sourceBadge;
       html += '</div>';
-
-      // Description
       html += '<div class="card-desc">' + esc(server.description || '') + '</div>';
-
-      // Meta
       html += '<div class="card-meta">';
       html += trustBadge;
       html += authBadge;
@@ -1271,19 +1860,13 @@
       html += toolBadge;
       html += costBadge;
       html += '</div>';
-
-      // Capabilities
       if (caps.length > 0) {
         html += '<div class="card-caps" data-server-id="' + esc(server.id || server.name) + '">' + capsHTML + '</div>';
       }
-
-      // Footer
       html += '<div class="card-footer">';
       html += '<span class="uptime' + uptimeClass + '">' + uptimeLabel + ' uptime</span>';
       html += '<span class="checked">Checked ' + shortDate(server.last_checked_at) + '</span>';
       html += '</div>';
-
-      // Expanded detail
       html += '<div class="card-detail">';
       html += '<div class="detail-section"><div class="detail-label">Full Description</div><div class="detail-value">' + esc(server.description || '') + '</div></div>';
       html += '<div class="detail-section"><div class="detail-label">Server URL</div><div class="detail-value mono">' + esc(server.server_url || '') + ' <button class="copy-btn" data-copy="' + esc(server.server_url || '') + '" onclick="event.stopPropagation()">📋</button></div></div>';
@@ -1292,23 +1875,19 @@
       html += '<div class="detail-section"><div class="detail-label">Dates</div><div class="detail-value">Created: ' + created + ' · Updated: ' + updated + '</div></div>';
       html += toolsHTML;
       html += curlHTML;
-      html += '</div>'; // card-detail
-
-      html += '</div>'; // server-card
+      html += '</div>';
+      html += '</div>';
     });
 
     cardGrid.innerHTML = html;
 
-    // Wire card clicks for expansion
     cardGrid.querySelectorAll('.server-card').forEach(function(card) {
       card.addEventListener('click', function(e) {
-        // Don't toggle if clicking a button, link, or the "more" button
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.cap-more-btn')) return;
         card.classList.toggle('expanded');
       });
     });
 
-    // Wire "more" capability buttons
     cardGrid.querySelectorAll('.cap-more-btn').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -1321,13 +1900,10 @@
           return '<span class="cap-chip' + (tc ? ' trucore' : '') + '">' + esc(c) + '</span>';
         }).join('');
         var capRow = cardGrid.querySelector('.card-caps[data-server-id="' + esc(serverId) + '"]');
-        if (capRow) {
-          capRow.innerHTML = fullHTML;
-        }
+        if (capRow) capRow.innerHTML = fullHTML;
       });
     });
 
-    // Wire copy buttons inside cards
     wireCopyButtons();
   }
 
@@ -1345,10 +1921,8 @@
     }
   }
 
-  // --- LOAD TOOLS ---
   async function loadTools() {
     try {
-      // Use the /v0/tools endpoint with the same filters as server mode
       var url = '/v0/tools?limit=200';
       if (currentCapability && currentCapability !== '__trucore__') {
         url += '&capability=' + encodeURIComponent(currentCapability);
@@ -1359,21 +1933,18 @@
       var data = await fetchJSON(url);
       var tools = data.tools || [];
 
-      // Filter by TruCore special selection
       if (currentCapability === '__trucore__') {
         tools = tools.filter(function(t) {
           return (t.source === 'TruCore') || /trucore/i.test(t.owner_contact || '');
         });
       }
 
-      // Filter by trust tier
       if (currentTrustTier) {
         tools = tools.filter(function(t) {
           return (t.trust_tier || '') === currentTrustTier;
         });
       }
 
-      // Sort: verified first, then by trust score desc, then name
       var tierRank = { verified: 0, trusted: 1, provisional: 2, untrusted: 3 };
       tools.sort(function(a, b) {
         var ra = tierRank[a.trust_tier] != null ? tierRank[a.trust_tier] : 9;
@@ -1389,7 +1960,7 @@
         (currentCapability ? ' with capability "' + esc(currentCapability === '__trucore__' ? 'TruCore' : currentCapability) + '"' : '') +
         (currentTrustTier ? ' · ' + currentTrustTier : '');
       loadMoreWrap.style.display = 'none';
-    } catch(e) {
+    } catch (e) {
       cardGrid.innerHTML = '<div class="tool-empty">Could not load tools. Registry may be unreachable.</div>';
     }
   }
@@ -1411,7 +1982,6 @@
       var upClass = entry.up ? 'up' : 'down';
       var curlSnippet = entry.curl_snippet || '';
 
-      // Trust badge
       var tier = entry.trust_tier || '';
       var score = entry.trust_score;
       var trustHTML = '';
@@ -1457,25 +2027,490 @@
     }
   }
 
+  // --- KNOWLEDGE ---
+  function claimContent(item) {
+    return String(pick(item, ['content', 'claim', 'text', 'statement', 'body'], ''));
+  }
+
+  function claimDomain(item) {
+    return String(pick(item, ['domain', 'source_domain', 'issuer_domain'], ''));
+  }
+
+  function claimIssuer(item) {
+    return String(pick(item, ['issuer_name', 'issuer', 'org', 'organization', 'source'], 'Unknown issuer'));
+  }
+
+  function claimStatus(item) {
+    return String(pick(item, ['status', 'state', 'claim_status'], 'active')).toLowerCase();
+  }
+
+  function claimScore(item) {
+    return pick(item, ['provenance_score', 'score', 'trust_score'], null);
+  }
+
+  function claimTier(item) {
+    var tier = pick(item, ['provenance_tier', 'tier', 'trust_tier'], '');
+    if (tier) return String(tier).toLowerCase();
+    return tierFromScore(claimScore(item));
+  }
+
+  function claimCreatedAt(item) {
+    return pick(item, ['created_at', 'createdAt', 'created', 'timestamp'], '');
+  }
+
+  function claimID(item) {
+    return String(pick(item, ['id', 'claim_id', 'key'], claimContent(item) || claimIssuer(item)));
+  }
+
+  function uniqueStrings(items, extractor) {
+    var seen = {};
+    var out = [];
+    items.forEach(function(item) {
+      var value = String(extractor(item) || '').trim();
+      if (!value) return;
+      var key = value.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(value);
+    });
+    return out.sort(function(a, b) { return a.localeCompare(b); });
+  }
+
+  function renderKnowledgeDomainOptions() {
+    var selected = knowledgeDomainFilter.value;
+    var options = '<option value="">All domains</option>';
+    uniqueStrings(knowledgeIndex, claimDomain).forEach(function(domain) {
+      options += '<option value="' + esc(domain) + '">' + esc(domain) + '</option>';
+    });
+    knowledgeDomainFilter.innerHTML = options;
+    knowledgeDomainFilter.value = selected || '';
+  }
+
+  function updateKnowledgeStats() {
+    knowledgeStatTotal.textContent = fmtNum(knowledgeIndex.length);
+    knowledgeStatDomains.textContent = fmtNum(uniqueStrings(knowledgeIndex, claimDomain).length);
+  }
+
+  function renderKnowledgeResults(count) {
+    var parts = ['Showing ' + fmtNum(count) + ' claims'];
+    var q = knowledgeSearchInput.value.trim();
+    var domain = knowledgeDomainFilter.value.trim();
+    if (q) parts.push('query "' + q + '"');
+    if (domain) parts.push('domain "' + domain + '"');
+    knowledgeResultsText.textContent = parts.join(' · ');
+  }
+
+  function renderKnowledgeCards() {
+    var domain = knowledgeDomainFilter.value.trim();
+    var items = knowledgeVisible.slice();
+    if (domain) {
+      items = items.filter(function(item) {
+        return claimDomain(item) === domain;
+      });
+    }
+
+    if (items.length === 0) {
+      var msg = 'No claims found';
+      var q = knowledgeSearchInput.value.trim();
+      if (q) msg += ' matching "' + esc(q) + '"';
+      if (domain) msg += ' in domain "' + esc(domain) + '"';
+      knowledgeCardGrid.innerHTML = '<div class="empty-state">' + msg + '.</div>';
+      renderKnowledgeResults(0);
+      return;
+    }
+
+    var html = '';
+    items.forEach(function(item) {
+      var content = claimContent(item);
+      var domainValue = claimDomain(item) || 'unknown';
+      var issuer = claimIssuer(item);
+      var status = claimStatus(item);
+      var score = claimScore(item);
+      var tier = claimTier(item);
+      var created = shortDate(claimCreatedAt(item));
+      var claimId = claimID(item);
+      var scoreText = score != null && score !== '' ? Number(score).toFixed(0) : 'n/a';
+      var tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+
+      html += '<div class="server-card claim-card" data-claim-id="' + esc(claimId) + '">';
+      html += '<div class="card-header">';
+      html += '<span class="srv-name">' + esc(issuer) + '</span>';
+      html += '<span class="issuer-badge">' + esc(issuer) + '</span>';
+      html += '</div>';
+      html += '<div class="card-desc">' + esc(content) + '</div>';
+      html += '<div class="card-meta">';
+      html += '<span class="claim-domain-badge">' + esc(domainValue) + '</span>';
+      html += '<span class="claim-status-badge ' + esc(status) + '">' + esc(status) + '</span>';
+      html += '<span class="provenance-badge ' + esc(tier) + '">' + esc(scoreText + ' · ' + tierLabel) + '</span>';
+      html += '</div>';
+      html += '<div class="card-footer">';
+      html += '<span class="uptime">' + esc(issuer) + '</span>';
+      html += '<span class="checked">Created ' + esc(created) + '</span>';
+      html += '</div>';
+      html += '<div class="card-detail">';
+      html += '<div class="detail-list">';
+      html += '<div class="detail-row"><strong>Content</strong><span>' + esc(content) + '</span></div>';
+      html += '<div class="detail-row"><strong>Domain</strong><span>' + esc(domainValue) + '</span></div>';
+      html += '<div class="detail-row"><strong>Issuer</strong><span>' + esc(issuer) + '</span></div>';
+      html += '<div class="detail-row"><strong>Status</strong><span>' + esc(status) + '</span></div>';
+      html += '<div class="detail-row"><strong>Provenance</strong><span>' + esc(scoreText + ' / 100 · ' + tierLabel) + '</span></div>';
+      html += '<div class="detail-row"><strong>Created</strong><span>' + esc(created) + '</span></div>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    knowledgeCardGrid.innerHTML = html;
+    knowledgeCardGrid.querySelectorAll('.server-card').forEach(function(card) {
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('button') || e.target.closest('a')) return;
+        card.classList.toggle('expanded');
+      });
+    });
+    wireCopyButtons();
+    renderKnowledgeResults(items.length);
+  }
+
+  async function refreshKnowledgeIndex() {
+    if (currentProduct !== 'knowledge') return;
+    knowledgeResultsText.textContent = 'Loading claims...';
+    try {
+      var data = await fetchJSON('/v0/knowledge');
+      knowledgeIndex = listFromResponse(data, ['claims', 'knowledge', 'items', 'results']);
+      updateKnowledgeStats();
+      renderKnowledgeDomainOptions();
+      knowledgeVisible = knowledgeIndex.slice();
+      if (knowledgeSearchInput.value.trim()) {
+        await searchKnowledge();
+      } else {
+        renderKnowledgeCards();
+      }
+    } catch (e) {
+      knowledgeCardGrid.innerHTML = '<div class="empty-state">Could not load claims.</div>';
+      knowledgeResultsText.textContent = 'Could not load claims.';
+    }
+  }
+
+  async function searchKnowledge() {
+    if (currentProduct !== 'knowledge') return;
+    var q = knowledgeSearchInput.value.trim();
+    if (!q) {
+      knowledgeVisible = knowledgeIndex.slice();
+      renderKnowledgeCards();
+      return;
+    }
+
+    knowledgeResultsText.textContent = 'Searching claims...';
+    try {
+      var data = await fetchJSON('/v0/knowledge?q=' + encodeURIComponent(q));
+      knowledgeVisible = listFromResponse(data, ['claims', 'knowledge', 'items', 'results']);
+      renderKnowledgeCards();
+    } catch (e) {
+      knowledgeCardGrid.innerHTML = '<div class="empty-state">Could not search claims.</div>';
+      knowledgeResultsText.textContent = 'Could not search claims.';
+    }
+  }
+
+  knowledgeSearchInput.addEventListener('input', function() {
+    clearTimeout(timerKnowledge);
+    timerKnowledge = setTimeout(function() {
+      if (currentProduct !== 'knowledge') return;
+      if (knowledgeSearchInput.value.trim()) {
+        searchKnowledge();
+      } else {
+        knowledgeVisible = knowledgeIndex.slice();
+        renderKnowledgeCards();
+      }
+    }, 250);
+  });
+
+  knowledgeDomainFilter.addEventListener('change', function() {
+    if (currentProduct !== 'knowledge') return;
+    renderKnowledgeCards();
+  });
+
+  knowledgeForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    knowledgeFormStatus.textContent = '';
+    knowledgeSubmitBtn.disabled = true;
+    knowledgeSubmitBtn.textContent = 'Submitting...';
+    try {
+      var payload = {
+        content: knowledgeContentInput.value.trim(),
+        domain: knowledgeDomainInput.value.trim(),
+        issuer: knowledgeIssuerInput.value.trim()
+      };
+      var data = await postJSON('/v0/knowledge', payload);
+      var writeKey = pick(data, ['write_key', 'writeKey', 'key'], '');
+      if (writeKey) {
+        knowledgeWriteKeyInput.value = String(writeKey);
+        knowledgeWriteKeyBox.style.display = 'block';
+        knowledgeCopyWriteKey.setAttribute('data-copy', String(writeKey));
+        wireCopyButtons();
+      }
+      knowledgeForm.reset();
+      knowledgeFormStatus.textContent = 'Claim created.';
+      await refreshKnowledgeIndex();
+    } catch (err) {
+      knowledgeFormStatus.textContent = 'Create failed.';
+    } finally {
+      knowledgeSubmitBtn.disabled = false;
+      knowledgeSubmitBtn.textContent = 'Submit claim';
+    }
+  });
+
+  // --- MEMORY ---
+  function memoryContent(item) {
+    return String(pick(item, ['content', 'memory', 'text', 'body', 'note'], ''));
+  }
+
+  function memoryCategory(item) {
+    return String(pick(item, ['category', 'type'], 'fact')).toLowerCase();
+  }
+
+  function memoryRetention(item) {
+    return String(pick(item, ['retention', 'retention_policy', 'ttl'], 'session')).toLowerCase();
+  }
+
+  function memoryOwner(item) {
+    return String(pick(item, ['owner_agent', 'agent', 'owner'], 'unknown'));
+  }
+
+  function memoryPurpose(item) {
+    return String(pick(item, ['purpose', 'reason'], ''));
+  }
+
+  function memorySubject(item) {
+    return String(pick(item, ['subject', 'topic'], ''));
+  }
+
+  function memoryCreatedAt(item) {
+    return pick(item, ['created_at', 'createdAt', 'created', 'timestamp'], '');
+  }
+
+  function memoryID(item) {
+    return String(pick(item, ['id', 'memory_id', 'key'], memoryContent(item) || memoryOwner(item)));
+  }
+
+  function renderMemoryAgentOptions() {
+    var selected = memoryAgentFilter.value;
+    var options = '<option value="">All agents</option>';
+    uniqueStrings(memoryIndex, memoryOwner).forEach(function(agent) {
+      options += '<option value="' + esc(agent) + '">' + esc(agent) + '</option>';
+    });
+    memoryAgentFilter.innerHTML = options;
+    memoryAgentFilter.value = selected || '';
+  }
+
+  function renderMemoryResults(count) {
+    var parts = ['Showing ' + fmtNum(count) + ' memories'];
+    var q = memorySearchInput.value.trim();
+    var agent = memoryAgentFilter.value.trim();
+    if (q) parts.push('query "' + q + '"');
+    if (agent) parts.push('agent "' + agent + '"');
+    memoryResultsText.textContent = parts.join(' · ');
+  }
+
+  function renderMemoryCards() {
+    var items = memoryVisible.slice();
+    var agent = memoryAgentFilter.value.trim();
+    if (agent) {
+      items = items.filter(function(item) {
+        return memoryOwner(item) === agent;
+      });
+    }
+
+    if (items.length === 0) {
+      var msg = 'No memories found';
+      var q = memorySearchInput.value.trim();
+      if (q) msg += ' matching "' + esc(q) + '"';
+      if (agent) msg += ' for agent "' + esc(agent) + '"';
+      memoryCardGrid.innerHTML = '<div class="empty-state">' + msg + '.</div>';
+      renderMemoryResults(0);
+      return;
+    }
+
+    var html = '';
+    items.forEach(function(item) {
+      var content = memoryContent(item);
+      var category = memoryCategory(item);
+      var retention = memoryRetention(item);
+      var owner = memoryOwner(item);
+      var purpose = memoryPurpose(item);
+      var subject = memorySubject(item);
+      var created = shortDate(memoryCreatedAt(item));
+      var memoryId = memoryID(item);
+
+      html += '<div class="server-card memory-card" data-memory-id="' + esc(memoryId) + '">';
+      html += '<div class="card-header">';
+      html += '<span class="srv-name">' + esc(owner) + '</span>';
+      html += '<span class="agent-badge">' + esc(owner) + '</span>';
+      html += '</div>';
+      html += '<div class="card-desc">' + esc(content) + '</div>';
+      html += '<div class="card-meta">';
+      html += '<span class="memory-category-badge ' + esc(category) + '">' + esc(category) + '</span>';
+      html += '<span class="retention-badge">' + esc(retention) + '</span>';
+      html += '</div>';
+      html += '<div class="card-footer">';
+      html += '<span class="uptime">' + esc(owner) + '</span>';
+      html += '<span class="checked">Created ' + esc(created) + '</span>';
+      html += '</div>';
+      html += '<div class="card-detail">';
+      html += '<div class="detail-list">';
+      html += '<div class="detail-row"><strong>Content</strong><span>' + esc(content) + '</span></div>';
+      html += '<div class="detail-row"><strong>Category</strong><span>' + esc(category) + '</span></div>';
+      html += '<div class="detail-row"><strong>Retention</strong><span>' + esc(retention) + '</span></div>';
+      html += '<div class="detail-row"><strong>Owner</strong><span>' + esc(owner) + '</span></div>';
+      html += '<div class="detail-row"><strong>Purpose</strong><span>' + esc(purpose) + '</span></div>';
+      html += '<div class="detail-row"><strong>Subject</strong><span>' + esc(subject) + '</span></div>';
+      html += '<div class="detail-row"><strong>Created</strong><span>' + esc(created) + '</span></div>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    memoryCardGrid.innerHTML = html;
+    memoryCardGrid.querySelectorAll('.server-card').forEach(function(card) {
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('button') || e.target.closest('a')) return;
+        card.classList.toggle('expanded');
+      });
+    });
+    wireCopyButtons();
+    renderMemoryResults(items.length);
+  }
+
+  async function refreshMemoryIndex() {
+    if (currentProduct !== 'memory') return;
+    memoryResultsText.textContent = 'Loading memories...';
+    try {
+      var data = await fetchJSON('/v0/memory');
+      memoryIndex = listFromResponse(data, ['memories', 'entries', 'items', 'results']);
+      renderMemoryAgentOptions();
+      if (memorySearchInput.value.trim() || memoryAgentFilter.value.trim()) {
+        await searchMemory();
+      } else {
+        memoryVisible = memoryIndex.slice();
+        renderMemoryCards();
+      }
+    } catch (e) {
+      memoryCardGrid.innerHTML = '<div class="empty-state">Could not load memories.</div>';
+      memoryResultsText.textContent = 'Could not load memories.';
+    }
+  }
+
+  async function searchMemory() {
+    if (currentProduct !== 'memory') return;
+    var q = memorySearchInput.value.trim();
+    var agent = memoryAgentFilter.value.trim();
+    if (!q && !agent) {
+      memoryVisible = memoryIndex.slice();
+      renderMemoryCards();
+      return;
+    }
+
+    memoryResultsText.textContent = 'Searching memories...';
+    try {
+      var url = '/v0/memory';
+      var params = [];
+      if (q) params.push('q=' + encodeURIComponent(q));
+      if (agent) params.push('agent=' + encodeURIComponent(agent));
+      if (params.length > 0) url += '?' + params.join('&');
+      var data = await fetchJSON(url);
+      memoryVisible = listFromResponse(data, ['memories', 'entries', 'items', 'results']);
+      renderMemoryCards();
+    } catch (e) {
+      memoryCardGrid.innerHTML = '<div class="empty-state">Could not search memories.</div>';
+      memoryResultsText.textContent = 'Could not search memories.';
+    }
+  }
+
+  memorySearchInput.addEventListener('input', function() {
+    clearTimeout(timerMemory);
+    timerMemory = setTimeout(function() {
+      if (currentProduct !== 'memory') return;
+      searchMemory();
+    }, 250);
+  });
+
+  memoryAgentFilter.addEventListener('change', function() {
+    if (currentProduct !== 'memory') return;
+    searchMemory();
+  });
+
+  memoryForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    memoryFormStatus.textContent = '';
+    memorySubmitBtn.disabled = true;
+    memorySubmitBtn.textContent = 'Submitting...';
+    try {
+      var payload = {
+        content: memoryContentInput.value.trim(),
+        category: memoryCategoryInput.value,
+        retention: memoryRetentionInput.value,
+        purpose: memoryPurposeInput.value.trim(),
+        subject: memorySubjectInput.value.trim(),
+        owner: memoryOwnerInput.value.trim()
+      };
+      var data = await postJSON('/v0/memory', payload);
+      var writeKey = pick(data, ['write_key', 'writeKey', 'key'], '');
+      if (writeKey) {
+        memoryWriteKeyInput.value = String(writeKey);
+        memoryWriteKeyBox.style.display = 'block';
+        memoryCopyWriteKey.setAttribute('data-copy', String(writeKey));
+        wireCopyButtons();
+      }
+      memoryForm.reset();
+      memoryCategoryInput.value = 'fact';
+      memoryRetentionInput.value = 'permanent';
+      memoryFormStatus.textContent = 'Memory created.';
+      await refreshMemoryIndex();
+    } catch (err) {
+      memoryFormStatus.textContent = 'Create failed.';
+    } finally {
+      memorySubmitBtn.disabled = false;
+      memorySubmitBtn.textContent = 'Submit memory';
+    }
+  });
+
   // --- INIT ---
   async function init() {
     wireCopyButtons();
     renderTrustPills();
-    await Promise.all([refreshStats(), refreshCapabilities()]);
-    if (currentMode === 'servers') {
-      await loadServers(true);
-    } else {
-      await loadTools();
+    setInitialProductState(currentProduct);
+
+    if (currentProduct === 'trust') {
+      var savedMode = sessionStorage.getItem('meshdns-mode');
+      if (savedMode === 'tools') currentMode = 'tools';
+      syncProductTabs();
+      await Promise.all([refreshStats(), refreshCapabilities()]);
+      setMode(currentMode);
+    } else if (currentProduct === 'knowledge') {
+      await refreshKnowledgeIndex();
+    } else if (currentProduct === 'memory') {
+      await refreshMemoryIndex();
     }
+
+    productTabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        activateProduct(tab.getAttribute('data-product'), false);
+      });
+    });
   }
 
   init();
   setInterval(function() {
-    refreshStats();
-    if (currentMode === 'servers') {
-      loadServers(true);
-    } else {
-      loadTools();
+    if (currentProduct === 'trust') {
+      refreshStats();
+      if (currentMode === 'servers') {
+        loadServers(true);
+      } else {
+        loadTools();
+      }
+    } else if (currentProduct === 'knowledge') {
+      refreshKnowledgeIndex();
+    } else if (currentProduct === 'memory') {
+      refreshMemoryIndex();
     }
   }, 30000);
 

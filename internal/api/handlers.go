@@ -96,6 +96,101 @@ type ServerWithState struct {
 	Provenance   *graph.TrustBreakdown `json:"provenance,omitempty"`
 }
 
+// --- Knowledge claim types ---
+
+// CreateClaimRequest is the JSON body for POST /v0/knowledge.
+type CreateClaimRequest struct {
+	Content string `json:"content"`
+	Domain  string `json:"domain"`
+	Issuer  string `json:"issuer"`
+}
+
+// UpdateClaimRequest is the JSON body for PUT /v0/knowledge/{id}.
+type UpdateClaimRequest struct {
+	Content *string `json:"content,omitempty"`
+	Domain  *string `json:"domain,omitempty"`
+	Status  *string `json:"status,omitempty"`
+}
+
+// ClaimResponse is the public JSON shape for knowledge claim responses.
+type ClaimResponse struct {
+	ID         string                `json:"id"`
+	Content    string                `json:"content"`
+	Domain     string                `json:"domain"`
+	Status     string                `json:"status"`
+	Version    int                   `json:"version"`
+	Issuer     string                `json:"issuer"`
+	CreatedAt  string                `json:"created_at"`
+	UpdatedAt  string                `json:"updated_at"`
+	Provenance *graph.ClaimBreakdown `json:"provenance,omitempty"`
+}
+
+// CreateClaimResponse is returned on successful claim creation.
+type CreateClaimResponse struct {
+	ClaimID  string `json:"claim_id"`
+	WriteKey string `json:"write_key"`
+}
+
+// SupersedeRequest asserts one claim supersedes another.
+type SupersedeRequest struct {
+	SupersedesID string `json:"supersedes_id"`
+}
+
+// ContradictRequest asserts one claim contradicts another.
+type ContradictRequest struct {
+	ContradictsID string `json:"contradicts_id"`
+}
+
+// AttestRequest attests to a claim.
+type AttestRequest struct {
+	Issuer string `json:"issuer"`
+}
+
+// --- Memory entry types ---
+
+// CreateMemoryRequest is the JSON body for POST /v0/memory.
+type CreateMemoryRequest struct {
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Retention string `json:"retention"`
+	Purpose   string `json:"purpose"`
+	Subject   string `json:"subject"`
+	Owner     string `json:"owner"`
+}
+
+// UpdateMemoryRequest is the JSON body for PUT /v0/memory/{id}.
+type UpdateMemoryRequest struct {
+	Content   *string `json:"content,omitempty"`
+	Category  *string `json:"category,omitempty"`
+	Retention *string `json:"retention,omitempty"`
+	Purpose   *string `json:"purpose,omitempty"`
+}
+
+// MemoryResponse is the public JSON shape for memory entry responses.
+type MemoryResponse struct {
+	ID        string `json:"id"`
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Retention string `json:"retention"`
+	Purpose   string `json:"purpose"`
+	Consent   bool   `json:"consent"`
+	Subject   string `json:"subject"`
+	Owner     string `json:"owner"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// CreateMemoryResponse is returned on successful memory creation.
+type CreateMemoryResponse struct {
+	MemoryID string `json:"memory_id"`
+	WriteKey string `json:"write_key"`
+}
+
+// RememberRequest creates a remembers edge from an agent to a memory entry.
+type RememberRequest struct {
+	AgentID string `json:"agent_id"`
+}
+
 // --- Validation ---
 
 var nameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
@@ -974,6 +1069,591 @@ func (s *Server) handleListCapabilities(w http.ResponseWriter, r *http.Request) 
 		caps = []store.CapabilityInfo{}
 	}
 	writeJSON(w, 200, map[string]any{"capabilities": caps})
+}
+
+// --- Knowledge claim handlers ---
+
+func claimFromNode(n graph.Node) ClaimResponse {
+	return ClaimResponse{
+		ID:        n.ID,
+		Content:   stringOr(n.Attrs, "content", ""),
+		Domain:    stringOr(n.Attrs, "domain", ""),
+		Status:    stringOr(n.Attrs, "status", "active"),
+		Version:   intOr(n.Attrs, "version", 1),
+		Issuer:    stringOr(n.Attrs, "issuer", ""),
+		CreatedAt: n.CreatedAt,
+		UpdatedAt: n.UpdatedAt,
+	}
+}
+
+func memoryFromNode(n graph.Node) MemoryResponse {
+	return MemoryResponse{
+		ID:        n.ID,
+		Content:   stringOr(n.Attrs, "content", ""),
+		Category:  stringOr(n.Attrs, "category", ""),
+		Retention: stringOr(n.Attrs, "retention", "permanent"),
+		Purpose:   stringOr(n.Attrs, "purpose", ""),
+		Consent:   boolOr(n.Attrs, "consent", false),
+		Subject:   stringOr(n.Attrs, "subject", ""),
+		Owner:     stringOr(n.Attrs, "owner", ""),
+		CreatedAt: n.CreatedAt,
+		UpdatedAt: n.UpdatedAt,
+	}
+}
+
+func stringOr(attrs map[string]any, key, def string) string {
+	if v, ok := attrs[key].(string); ok {
+		return v
+	}
+	return def
+}
+
+func intOr(attrs map[string]any, key string, def int) int {
+	if v, ok := attrs[key].(float64); ok {
+		return int(v)
+	}
+	return def
+}
+
+func boolOr(attrs map[string]any, key string, def bool) bool {
+	if v, ok := attrs[key].(bool); ok {
+		return v
+	}
+	return def
+}
+
+// POST /v0/knowledge — create a knowledge claim
+func (s *Server) handleCreateClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	var req CreateClaimRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, 422, "invalid_json", "could not parse request body")
+		return
+	}
+	if req.Content == "" || req.Domain == "" {
+		writeError(w, 422, "validation_error", "content and domain are required")
+		return
+	}
+
+	claimID := "claim:" + uuid.New().String()
+	writeKey := generateWriteKey()
+	writeKeyHash := hashWriteKey(writeKey)
+
+	attrs := map[string]any{
+		"content": req.Content,
+		"domain":  req.Domain,
+		"status":  "active",
+		"version": 1,
+		"issuer":  req.Issuer,
+	}
+	if err := s.Graph.UpsertNode(claimID, graph.NodeKnowledgeClaim, attrs); err != nil {
+		writeError(w, 500, "db_error", "failed to create claim")
+		return
+	}
+	_ = s.Store.SetWriteKey(claimID, "knowledge", writeKeyHash)
+
+	// If issuer is provided, also upsert the issuer org node and attestation edge
+	if req.Issuer != "" {
+		issuerID := "org:" + strings.ToLower(strings.TrimSpace(req.Issuer))
+		existing, _ := s.Graph.GetNode(issuerID)
+		if existing == nil {
+			_ = s.Graph.UpsertNode(issuerID, graph.NodeOrg, map[string]any{"name": req.Issuer, "trust": 0.3})
+		}
+		_, _ = s.Graph.AddEdge(issuerID, claimID, graph.EdgeAttestsTo, "", "", req.Issuer, 1.0, nil)
+	}
+
+	writeJSON(w, 201, CreateClaimResponse{ClaimID: claimID, WriteKey: writeKey})
+}
+
+// GET /v0/knowledge/{id} — get a claim with provenance
+func (s *Server) handleGetClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	n, err := s.Graph.GetNode(id)
+	if err != nil {
+		writeError(w, 404, "not_found", "claim not found")
+		return
+	}
+	if n.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "not a knowledge claim")
+		return
+	}
+	resp := claimFromNode(*n)
+	if cb, err := s.Graph.ClaimScore(id); err == nil && cb.NumAttestations+cb.NumContradictions > 0 {
+		resp.Provenance = &cb
+	}
+	writeJSON(w, 200, resp)
+}
+
+// GET /v0/knowledge — list/search claims
+func (s *Server) handleListClaims(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	domain := r.URL.Query().Get("domain")
+	query := r.URL.Query().Get("q")
+	limit := 50
+
+	var nodes []graph.Node
+	var err error
+
+	if query != "" {
+		nodes, err = s.Graph.SearchClaims(query, limit)
+	} else if domain != "" {
+		nodes, err = s.Graph.ClaimsByDomain(domain, limit)
+	} else {
+		nodes, err = s.Graph.SearchClaims("", limit)
+	}
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to list claims")
+		return
+	}
+
+	claims := make([]ClaimResponse, 0, len(nodes))
+	for _, n := range nodes {
+		c := claimFromNode(n)
+		if cb, err := s.Graph.ClaimScore(n.ID); err == nil && cb.NumAttestations+cb.NumContradictions > 0 {
+			c.Provenance = &cb
+		}
+		claims = append(claims, c)
+	}
+	writeJSON(w, 200, map[string]any{"claims": claims})
+}
+
+// PUT /v0/knowledge/{id} — update a claim (requires write key)
+func (s *Server) handleUpdateClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	rawKey := extractWriteKey(r)
+	if rawKey == "" || !s.Store.CheckWriteKey(id, "knowledge", hashWriteKey(rawKey)) {
+		writeError(w, 401, "unauthorized", "valid write key required")
+		return
+	}
+
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "claim not found")
+		return
+	}
+
+	var req UpdateClaimRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, 422, "invalid_json", "could not parse request body")
+		return
+	}
+
+	attrs := map[string]any{}
+	if req.Content != nil {
+		attrs["content"] = *req.Content
+	}
+	if req.Domain != nil {
+		attrs["domain"] = *req.Domain
+	}
+	if req.Status != nil {
+		attrs["status"] = *req.Status
+	}
+	if err := s.Graph.UpsertNode(id, graph.NodeKnowledgeClaim, attrs); err != nil {
+		writeError(w, 500, "db_error", "failed to update claim")
+		return
+	}
+
+	// Re-read the updated node
+	n, _ = s.Graph.GetNode(id)
+	resp := claimFromNode(*n)
+	writeJSON(w, 200, resp)
+}
+
+// POST /v0/knowledge/{id}/supersede — assert this claim supersedes another
+func (s *Server) handleSupersedeClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	rawKey := extractWriteKey(r)
+	if rawKey == "" || !s.Store.CheckWriteKey(id, "knowledge", hashWriteKey(rawKey)) {
+		writeError(w, 401, "unauthorized", "valid write key required")
+		return
+	}
+
+	var req SupersedeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.SupersedesID == "" {
+		writeError(w, 422, "validation_error", "supersedes_id is required")
+		return
+	}
+
+	// Verify both nodes exist
+	if _, err := s.Graph.GetNode(id); err != nil {
+		writeError(w, 404, "not_found", "source claim not found")
+		return
+	}
+	oldClaim, err := s.Graph.GetNode(req.SupersedesID)
+	if err != nil || oldClaim.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "target claim not found")
+		return
+	}
+
+	// Get the issuer from the source claim
+	n, _ := s.Graph.GetNode(id)
+	issuer := stringOr(n.Attrs, "issuer", "")
+
+	_, err = s.Graph.AddEdge(id, req.SupersedesID, graph.EdgeSupersedes, "", "", issuer, 1.0, nil)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to create supersede edge")
+		return
+	}
+
+	// Mark the old claim as superseded
+	_ = s.Graph.UpsertNode(req.SupersedesID, graph.NodeKnowledgeClaim, map[string]any{"status": "superseded"})
+
+	writeJSON(w, 200, map[string]any{"status": "ok", "supersedes": req.SupersedesID})
+}
+
+// POST /v0/knowledge/{id}/contradict — assert this claim contradicts another
+func (s *Server) handleContradictClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	rawKey := extractWriteKey(r)
+	if rawKey == "" || !s.Store.CheckWriteKey(id, "knowledge", hashWriteKey(rawKey)) {
+		writeError(w, 401, "unauthorized", "valid write key required")
+		return
+	}
+
+	var req ContradictRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ContradictsID == "" {
+		writeError(w, 422, "validation_error", "contradicts_id is required")
+		return
+	}
+
+	if _, err := s.Graph.GetNode(id); err != nil {
+		writeError(w, 404, "not_found", "source claim not found")
+		return
+	}
+	targetClaim, err := s.Graph.GetNode(req.ContradictsID)
+	if err != nil || targetClaim.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "target claim not found")
+		return
+	}
+
+	n, _ := s.Graph.GetNode(id)
+	issuer := stringOr(n.Attrs, "issuer", "")
+
+	_, err = s.Graph.AddEdge(id, req.ContradictsID, graph.EdgeContradicts, "", "", issuer, 1.0, nil)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to create contradict edge")
+		return
+	}
+
+	writeJSON(w, 200, map[string]any{"status": "ok", "contradicts": req.ContradictsID})
+}
+
+// POST /v0/knowledge/{id}/attest — attest to a claim
+func (s *Server) handleAttestClaim(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+
+	var req AttestRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Issuer == "" {
+		writeError(w, 422, "validation_error", "issuer is required")
+		return
+	}
+
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "claim not found")
+		return
+	}
+
+	issuerID := "org:" + strings.ToLower(strings.TrimSpace(req.Issuer))
+	existing, _ := s.Graph.GetNode(issuerID)
+	if existing == nil {
+		_ = s.Graph.UpsertNode(issuerID, graph.NodeOrg, map[string]any{"name": req.Issuer, "trust": 0.3})
+	}
+	_, err = s.Graph.AddEdge(issuerID, id, graph.EdgeAttestsTo, "", "", req.Issuer, 1.0, nil)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to create attestation")
+		return
+	}
+
+	writeJSON(w, 200, map[string]any{"status": "ok", "claim_id": id, "attested_by": req.Issuer})
+}
+
+// GET /v0/knowledge/{id}/provenance — claim provenance breakdown
+func (s *Server) handleClaimProvenance(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeKnowledgeClaim {
+		writeError(w, 404, "not_found", "claim not found")
+		return
+	}
+	cb, err := s.Graph.ClaimScore(id)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to compute claim score")
+		return
+	}
+	writeJSON(w, 200, cb)
+}
+
+// --- Memory entry handlers ---
+
+// POST /v0/memory — create a memory entry
+func (s *Server) handleCreateMemory(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	var req CreateMemoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, 422, "invalid_json", "could not parse request body")
+		return
+	}
+	if req.Content == "" || req.Owner == "" {
+		writeError(w, 422, "validation_error", "content and owner are required")
+		return
+	}
+	if req.Retention == "" {
+		req.Retention = "permanent"
+	}
+	if req.Category == "" {
+		req.Category = "fact"
+	}
+
+	memoryID := "memory:" + uuid.New().String()
+	writeKey := generateWriteKey()
+	writeKeyHash := hashWriteKey(writeKey)
+
+	attrs := map[string]any{
+		"content":   req.Content,
+		"category":  req.Category,
+		"retention": req.Retention,
+		"purpose":   req.Purpose,
+		"consent":   true,
+		"subject":   req.Subject,
+		"owner":     req.Owner,
+	}
+	if err := s.Graph.UpsertNode(memoryID, graph.NodeMemoryEntry, attrs); err != nil {
+		writeError(w, 500, "db_error", "failed to create memory entry")
+		return
+	}
+	_ = s.Store.SetWriteKey(memoryID, "memory", writeKeyHash)
+
+	// Also create a remembers edge from the owner
+	ownerID := "agent:" + strings.ToLower(strings.TrimSpace(req.Owner))
+	_ = s.Graph.UpsertNode(ownerID, graph.NodeAgent, map[string]any{"name": req.Owner})
+	_, _ = s.Graph.AddEdge(ownerID, memoryID, graph.EdgeRemembers, "", "", req.Owner, 1.0, nil)
+
+	writeJSON(w, 201, CreateMemoryResponse{MemoryID: memoryID, WriteKey: writeKey})
+}
+
+// GET /v0/memory/{id} — get a memory entry
+func (s *Server) handleGetMemory(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	n, err := s.Graph.GetNode(id)
+	if err != nil {
+		writeError(w, 404, "not_found", "memory entry not found")
+		return
+	}
+	if n.Type != graph.NodeMemoryEntry {
+		writeError(w, 404, "not_found", "not a memory entry")
+		return
+	}
+	writeJSON(w, 200, memoryFromNode(*n))
+}
+
+// GET /v0/memory — list/search memories
+func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	agentID := r.URL.Query().Get("agent")
+	category := r.URL.Query().Get("category")
+	query := r.URL.Query().Get("q")
+	limit := 50
+
+	var nodes []graph.Node
+	var err error
+
+	if query != "" {
+		nodes, err = s.Graph.SearchMemories(agentID, query, limit)
+	} else if agentID != "" {
+		nodes, err = s.Graph.MemoriesByAgent(agentID, category, limit)
+	} else {
+		nodes, err = s.Graph.SearchMemories("", "", limit)
+	}
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to list memories")
+		return
+	}
+
+	memories := make([]MemoryResponse, 0, len(nodes))
+	for _, n := range nodes {
+		memories = append(memories, memoryFromNode(n))
+	}
+	writeJSON(w, 200, map[string]any{"memories": memories})
+}
+
+// PUT /v0/memory/{id} — update a memory entry (requires write key)
+func (s *Server) handleUpdateMemory(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	rawKey := extractWriteKey(r)
+	if rawKey == "" || !s.Store.CheckWriteKey(id, "memory", hashWriteKey(rawKey)) {
+		writeError(w, 401, "unauthorized", "valid write key required")
+		return
+	}
+
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeMemoryEntry {
+		writeError(w, 404, "not_found", "memory entry not found")
+		return
+	}
+
+	var req UpdateMemoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, 422, "invalid_json", "could not parse request body")
+		return
+	}
+
+	attrs := map[string]any{}
+	if req.Content != nil {
+		attrs["content"] = *req.Content
+	}
+	if req.Category != nil {
+		attrs["category"] = *req.Category
+	}
+	if req.Retention != nil {
+		attrs["retention"] = *req.Retention
+	}
+	if req.Purpose != nil {
+		attrs["purpose"] = *req.Purpose
+	}
+	if err := s.Graph.UpsertNode(id, graph.NodeMemoryEntry, attrs); err != nil {
+		writeError(w, 500, "db_error", "failed to update memory entry")
+		return
+	}
+
+	n, _ = s.Graph.GetNode(id)
+	writeJSON(w, 200, memoryFromNode(*n))
+}
+
+// DELETE /v0/memory/{id} — delete a memory entry (right to be forgotten)
+func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	rawKey := extractWriteKey(r)
+	if rawKey == "" || !s.Store.CheckWriteKey(id, "memory", hashWriteKey(rawKey)) {
+		writeError(w, 401, "unauthorized", "valid write key required")
+		return
+	}
+
+	if err := s.Graph.DeleteMemoryEntry(id); err != nil {
+		writeError(w, 500, "db_error", "failed to delete memory entry")
+		return
+	}
+	_ = s.Store.DeleteWriteKey(id, "memory")
+	writeJSON(w, 200, map[string]any{"status": "deleted", "id": id})
+}
+
+// POST /v0/memory/{id}/remember — agent remembers a memory entry
+func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+
+	var req RememberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.AgentID == "" {
+		writeError(w, 422, "validation_error", "agent_id is required")
+		return
+	}
+
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeMemoryEntry {
+		writeError(w, 404, "not_found", "memory entry not found")
+		return
+	}
+
+	agentID := "agent:" + strings.ToLower(strings.TrimSpace(req.AgentID))
+	_ = s.Graph.UpsertNode(agentID, graph.NodeAgent, map[string]any{"name": req.AgentID})
+	_, err = s.Graph.AddEdge(agentID, id, graph.EdgeRemembers, "", "", req.AgentID, 1.0, nil)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to create remembers edge")
+		return
+	}
+
+	writeJSON(w, 200, map[string]any{"status": "ok", "memory_id": id, "agent_id": req.AgentID})
+}
+
+// DELETE /v0/memory/{id}/forget — agent forgets a memory entry
+func (s *Server) handleForget(w http.ResponseWriter, r *http.Request) {
+	if s.Graph == nil {
+		writeError(w, 500, "unavailable", "ProvenGraph not initialized")
+		return
+	}
+	id := r.PathValue("id")
+	agentID := r.URL.Query().Get("agent")
+	if agentID == "" {
+		writeError(w, 422, "validation_error", "?agent= query param is required")
+		return
+	}
+
+	agentNodeID := "agent:" + strings.ToLower(strings.TrimSpace(agentID))
+
+	// Verify memory entry exists
+	n, err := s.Graph.GetNode(id)
+	if err != nil || n.Type != graph.NodeMemoryEntry {
+		writeError(w, 404, "not_found", "memory entry not found")
+		return
+	}
+
+	// Find the remembers edge from this agent to this memory
+	edges, err := s.Graph.EdgesFrom(agentNodeID, graph.EdgeRemembers)
+	if err != nil {
+		writeError(w, 500, "db_error", "failed to query edges")
+		return
+	}
+
+	found := 0
+	for _, e := range edges {
+		if e.Dst == id {
+			_ = s.Graph.DeleteEdge(e.ID)
+			found++
+		}
+	}
+
+	writeJSON(w, 200, map[string]any{"status": "forgotten", "memory_id": id, "agent_id": agentID, "edges_removed": found})
 }
 
 // extractToolNames parses tool names from a server description using multiple patterns.

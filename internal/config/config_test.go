@@ -12,8 +12,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Port != ":8080" {
 		t.Errorf("Port = %q, want :8080", cfg.Port)
 	}
-	if cfg.DBPath != "meshdns.db" {
-		t.Errorf("DBPath = %q, want meshdns.db", cfg.DBPath)
+	if cfg.DBPath != "provengraph.db" {
+		t.Errorf("DBPath = %q, want provengraph.db", cfg.DBPath)
 	}
 	if cfg.ProbeInterval != 60*time.Second {
 		t.Errorf("ProbeInterval = %v, want 60s", cfg.ProbeInterval)

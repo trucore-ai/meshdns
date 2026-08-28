@@ -10,3 +10,5 @@ sdk/**/package-lock.json
 meshdns-cli
 meshdns-linux
 update_trucore.py
+provengraph
+provengraph-linux

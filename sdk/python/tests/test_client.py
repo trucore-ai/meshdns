@@ -291,3 +291,190 @@ class TestServerInfo:
         assert s.capabilities == ["a"]
         assert s.uptime_30d == 0.99
         assert s.last_checked_at == "2024-01-01"
+
+
+# ---------------------------------------------------------------------------
+# Knowledge tests
+# ---------------------------------------------------------------------------
+
+
+class TestKnowledgeCreateAndGet:
+    def test_create_claim_returns_id_and_write_key(self, client):
+        result = client.create_claim(
+            content="The sky is blue",
+            domain="science",
+            issuer="alice",
+        )
+        assert "claim_id" in result
+        assert "write_key" in result
+
+    def test_get_claim_returns_provenance(self, client):
+        created = client.create_claim(
+            content="Water boils at 100°C",
+            domain="physics",
+        )
+        claim_id = created["claim_id"]
+        claim = client.get_claim(claim_id)
+        assert claim.get("content") == "Water boils at 100°C"
+        assert claim.get("domain") == "physics"
+
+    def test_list_claims_returns_matching(self, client):
+        client.create_claim(content="claim-a", domain="test-k")
+        client.create_claim(content="claim-b", domain="test-k")
+        results = client.list_claims(domain="test-k")
+        assert isinstance(results, list)
+        contents = {c.get("content") for c in results}
+        assert "claim-a" in contents
+        assert "claim-b" in contents
+
+    def test_list_claims_empty_domain(self, client):
+        results = client.list_claims(domain="nonexistent-domain-xyz")
+        assert results == []
+
+
+class TestClaimRelationships:
+    def test_supersede_claim(self, client):
+        old = client.create_claim(content="original", domain="test")
+        new = client.create_claim(content="updated", domain="test")
+        result = client.supersede_claim(
+            claim_id=new["claim_id"],
+            supersedes_id=old["claim_id"],
+            write_key=new["write_key"],
+        )
+        assert "status" in result or "claim_id" in result
+
+    def test_contradict_claim(self, client):
+        a = client.create_claim(content="a says x", domain="test")
+        b = client.create_claim(content="b says not x", domain="test")
+        result = client.contradict_claim(
+            claim_id=b["claim_id"],
+            contradicts_id=a["claim_id"],
+            write_key=b["write_key"],
+        )
+        assert "status" in result or "claim_id" in result
+
+    def test_attest_claim(self, client):
+        claim = client.create_claim(content="trustworthy fact", domain="test")
+        result = client.attest_claim(
+            claim_id=claim["claim_id"],
+            issuer="bob",
+        )
+        assert "status" in result or "claim_id" in result
+
+
+class TestKnowledgeErrors:
+    def test_get_nonexistent_claim_raises(self, client):
+        with pytest.raises(MeshDNSError) as exc_info:
+            client.get_claim("nonexistent-claim-id")
+        assert exc_info.value.status_code in (404, 422, 500)
+
+
+# ---------------------------------------------------------------------------
+# Memory tests
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryCreateAndGet:
+    def test_create_memory_returns_id_and_write_key(self, client):
+        result = client.create_memory(
+            content="User prefers dark mode",
+            owner="agent-1",
+        )
+        assert "memory_id" in result
+        assert "write_key" in result
+
+    def test_get_memory_returns_data(self, client):
+        created = client.create_memory(
+            content="Meeting at 3pm",
+            owner="agent-2",
+            category="event",
+        )
+        memory_id = created["memory_id"]
+        memory = client.get_memory(memory_id)
+        assert memory.get("content") == "Meeting at 3pm"
+        assert memory.get("owner") == "agent-2"
+
+    def test_list_memories_returns_matching(self, client):
+        client.create_memory(content="mem-a", owner="test-agent", category="fact")
+        client.create_memory(content="mem-b", owner="test-agent", category="fact")
+        results = client.list_memories(agent="test-agent")
+        assert isinstance(results, list)
+        contents = {m.get("content") for m in results}
+        assert "mem-a" in contents
+        assert "mem-b" in contents
+
+    def test_list_memories_by_category(self, client):
+        client.create_memory(
+            content="cat-test", owner="agent-x", category="unique-cat"
+        )
+        results = client.list_memories(category="unique-cat")
+        assert isinstance(results, list)
+        assert any(m.get("content") == "cat-test" for m in results)
+
+    def test_list_memories_empty(self, client):
+        results = client.list_memories(agent="nonexistent-agent-xyz")
+        assert results == []
+
+
+class TestMemoryMutate:
+    def test_update_memory(self, client):
+        created = client.create_memory(
+            content="old content", owner="agent-3"
+        )
+        result = client.update_memory(
+            memory_id=created["memory_id"],
+            write_key=created["write_key"],
+            content="new content",
+        )
+        assert "memory_id" in result or "status" in result
+
+        # Verify the update persisted
+        updated = client.get_memory(created["memory_id"])
+        assert updated.get("content") == "new content"
+
+    def test_delete_memory(self, client):
+        created = client.create_memory(
+            content="to be deleted", owner="agent-4"
+        )
+        result = client.delete_memory(
+            memory_id=created["memory_id"],
+            write_key=created["write_key"],
+        )
+        assert "memory_id" in result or "status" in result
+
+        # Verify deletion
+        with pytest.raises(MeshDNSError) as exc_info:
+            client.get_memory(created["memory_id"])
+        assert exc_info.value.status_code in (404, 422, 500)
+
+
+class TestMemoryRememberForget:
+    def test_remember_and_forget(self, client):
+        created = client.create_memory(
+            content="important fact", owner="owner-1"
+        )
+        memory_id = created["memory_id"]
+
+        # Remember
+        remember_result = client.remember(memory_id=memory_id, agent_id="agent-x")
+        assert "status" in remember_result or "memory_id" in remember_result
+
+        # Forget
+        forget_result = client.forget(memory_id=memory_id, agent_id="agent-x")
+        assert "status" in forget_result or "memory_id" in forget_result
+
+
+class TestMemoryErrors:
+    def test_get_nonexistent_memory_raises(self, client):
+        with pytest.raises(MeshDNSError) as exc_info:
+            client.get_memory("nonexistent-memory-id")
+        assert exc_info.value.status_code in (404, 422, 500)
+
+    def test_update_nonexistent_memory_raises(self, client):
+        with pytest.raises(MeshDNSError) as exc_info:
+            client.update_memory(
+                memory_id="nonexistent-id",
+                write_key="fake-key",
+                content="will fail",
+            )
+        assert exc_info.value.status_code in (404, 422, 500)
